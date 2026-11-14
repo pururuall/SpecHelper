@@ -1,0 +1,31 @@
+# Build outputs
+bin/
+obj/
+**/bin/
+**/obj/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.log
+
+# NuGet packages (can be restored)
+packages/
+.tools/
+
+# User-specific / Local Data
+*.xlsx
+!databases/*.xlsx
+!SpecHelper_РабочийПК/databases/*.xlsx
+Пример спецификации.xlsx
+*.tmp
+*.temp
+addin_debug.log
+config.json
+
+# OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store

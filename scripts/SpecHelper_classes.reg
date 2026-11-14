@@ -1,0 +1,131 @@
+REGEDIT4
+
+[HKEY_CLASSES_ROOT\SpecHelper.AddIn]
+@="SpecHelper.AddIn"
+
+[HKEY_CLASSES_ROOT\SpecHelper.AddIn\CLSID]
+@="{A19845E6-5F24-4B78-8316-D4E03C1247AA}"
+
+[HKEY_CLASSES_ROOT\CLSID\{A19845E6-5F24-4B78-8316-D4E03C1247AA}]
+@="SpecHelper.AddIn"
+
+[HKEY_CLASSES_ROOT\CLSID\{A19845E6-5F24-4B78-8316-D4E03C1247AA}\InprocServer32]
+@="mscoree.dll"
+"ThreadingModel"="Both"
+"Class"="SpecHelper.AddIn"
+"Assembly"="SpecHelper, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null"
+"RuntimeVersion"="v4.0.30319"
+"CodeBase"="file:///D:/EXCEL mibil/src/SpecHelper/bin/Release/SpecHelper.dll"
+
+[HKEY_CLASSES_ROOT\CLSID\{A19845E6-5F24-4B78-8316-D4E03C1247AA}\InprocServer32\1.0.0.0]
+"Class"="SpecHelper.AddIn"
+"Assembly"="SpecHelper, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null"
+"RuntimeVersion"="v4.0.30319"
+"CodeBase"="file:///D:/EXCEL mibil/src/SpecHelper/bin/Release/SpecHelper.dll"
+
+[HKEY_CLASSES_ROOT\CLSID\{A19845E6-5F24-4B78-8316-D4E03C1247AA}\ProgId]
+@="SpecHelper.AddIn"
+
+[HKEY_CLASSES_ROOT\CLSID\{A19845E6-5F24-4B78-8316-D4E03C1247AA}\Implemented Categories\{62C8FE65-4EBB-45E7-B440-6E39B2CDBF29}]
+
+[HKEY_CLASSES_ROOT\SpecHelper.UI.SpecPaneControl]
+@="SpecHelper.UI.SpecPaneControl"
+
+[HKEY_CLASSES_ROOT\SpecHelper.UI.SpecPaneControl\CLSID]
+@="{D86F2C74-3208-4CE0-A4F7-1B8C512F9E82}"
+
+[HKEY_CLASSES_ROOT\CLSID\{D86F2C74-3208-4CE0-A4F7-1B8C512F9E82}]
+@="SpecHelper.UI.SpecPaneControl"
+
+[HKEY_CLASSES_ROOT\CLSID\{D86F2C74-3208-4CE0-A4F7-1B8C512F9E82}\InprocServer32]
+@="mscoree.dll"
+"ThreadingModel"="Both"
+"Class"="SpecHelper.UI.SpecPaneControl"
+"Assembly"="SpecHelper, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null"
+"RuntimeVersion"="v4.0.30319"
+"CodeBase"="file:///D:/EXCEL mibil/src/SpecHelper/bin/Release/SpecHelper.dll"
+
+[HKEY_CLASSES_ROOT\CLSID\{D86F2C74-3208-4CE0-A4F7-1B8C512F9E82}\InprocServer32\1.0.0.0]
+"Class"="SpecHelper.UI.SpecPaneControl"
+"Assembly"="SpecHelper, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null"
+"RuntimeVersion"="v4.0.30319"
+"CodeBase"="file:///D:/EXCEL mibil/src/SpecHelper/bin/Release/SpecHelper.dll"
+
+[HKEY_CLASSES_ROOT\CLSID\{D86F2C74-3208-4CE0-A4F7-1B8C512F9E82}\ProgId]
+@="SpecHelper.UI.SpecPaneControl"
+
+[HKEY_CLASSES_ROOT\CLSID\{D86F2C74-3208-4CE0-A4F7-1B8C512F9E82}\Implemented Categories\{62C8FE65-4EBB-45E7-B440-6E39B2CDBF29}]
+
+[HKEY_CLASSES_ROOT\Record\{A4F999EA-1F8A-3503-92E7-44A21DD816F1}\1.0.0.0]
+"Class"="SpecHelper.Models.CatalogType"
+"Assembly"="SpecHelper, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null"
+"RuntimeVersion"="v4.0.30319"
+"CodeBase"="file:///D:/EXCEL mibil/src/SpecHelper/bin/Release/SpecHelper.dll"
+
+[HKEY_CLASSES_ROOT\SpecHelper.Models.CatalogItem]
+@="SpecHelper.Models.CatalogItem"
+
+[HKEY_CLASSES_ROOT\SpecHelper.Models.CatalogItem\CLSID]
+@="{715D94E9-DF39-3518-9AA8-13AA143E6A35}"
+
+[HKEY_CLASSES_ROOT\CLSID\{715D94E9-DF39-3518-9AA8-13AA143E6A35}]
+@="SpecHelper.Models.CatalogItem"
+
+[HKEY_CLASSES_ROOT\CLSID\{715D94E9-DF39-3518-9AA8-13AA143E6A35}\InprocServer32]
+@="mscoree.dll"
+"ThreadingModel"="Both"
+"Class"="SpecHelper.Models.CatalogItem"
+"Assembly"="SpecHelper, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null"
+"RuntimeVersion"="v4.0.30319"
+"CodeBase"="file:///D:/EXCEL mibil/src/SpecHelper/bin/Release/SpecHelper.dll"
+
+[HKEY_CLASSES_ROOT\CLSID\{715D94E9-DF39-3518-9AA8-13AA143E6A35}\InprocServer32\1.0.0.0]
+"Class"="SpecHelper.Models.CatalogItem"
+"Assembly"="SpecHelper, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null"
+"RuntimeVersion"="v4.0.30319"
+"CodeBase"="file:///D:/EXCEL mibil/src/SpecHelper/bin/Release/SpecHelper.dll"
+
+[HKEY_CLASSES_ROOT\CLSID\{715D94E9-DF39-3518-9AA8-13AA143E6A35}\ProgId]
+@="SpecHelper.Models.CatalogItem"
+
+[HKEY_CLASSES_ROOT\CLSID\{715D94E9-DF39-3518-9AA8-13AA143E6A35}\Implemented Categories\{62C8FE65-4EBB-45E7-B440-6E39B2CDBF29}]
+
+[HKEY_CLASSES_ROOT\SpecHelper.Models.PluginConfig]
+@="SpecHelper.Models.PluginConfig"
+
+[HKEY_CLASSES_ROOT\SpecHelper.Models.PluginConfig\CLSID]
+@="{8142D23F-F561-3BC8-964D-E8B2646B93B1}"
+
+[HKEY_CLASSES_ROOT\CLSID\{8142D23F-F561-3BC8-964D-E8B2646B93B1}]
+@="SpecHelper.Models.PluginConfig"
+
+[HKEY_CLASSES_ROOT\CLSID\{8142D23F-F561-3BC8-964D-E8B2646B93B1}\InprocServer32]
+@="mscoree.dll"
+"ThreadingModel"="Both"
+"Class"="SpecHelper.Models.PluginConfig"
+"Assembly"="SpecHelper, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null"
+"RuntimeVersion"="v4.0.30319"
+"CodeBase"="file:///D:/EXCEL mibil/src/SpecHelper/bin/Release/SpecHelper.dll"
+
+[HKEY_CLASSES_ROOT\CLSID\{8142D23F-F561-3BC8-964D-E8B2646B93B1}\InprocServer32\1.0.0.0]
+"Class"="SpecHelper.Models.PluginConfig"
+"Assembly"="SpecHelper, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null"
+"RuntimeVersion"="v4.0.30319"
+"CodeBase"="file:///D:/EXCEL mibil/src/SpecHelper/bin/Release/SpecHelper.dll"
+
+[HKEY_CLASSES_ROOT\CLSID\{8142D23F-F561-3BC8-964D-E8B2646B93B1}\ProgId]
+@="SpecHelper.Models.PluginConfig"
+
+[HKEY_CLASSES_ROOT\CLSID\{8142D23F-F561-3BC8-964D-E8B2646B93B1}\Implemented Categories\{62C8FE65-4EBB-45E7-B440-6E39B2CDBF29}]
+
+[HKEY_CLASSES_ROOT\Record\{099CF7EC-3C79-3D94-B326-0B46498B406C}\1.0.0.0]
+"Class"="Microsoft.Office.Core.MsoCTPDockPosition"
+"Assembly"="SpecHelper, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null"
+"RuntimeVersion"="v4.0.30319"
+"CodeBase"="file:///D:/EXCEL mibil/src/SpecHelper/bin/Release/SpecHelper.dll"
+
+[HKEY_CLASSES_ROOT\Record\{6E2D1C27-DA2E-3274-BE57-E7C26EB5DEA8}\1.0.0.0]
+"Class"="Microsoft.Office.Core.MsoCTPDockPositionRestrict"
+"Assembly"="SpecHelper, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null"
+"RuntimeVersion"="v4.0.30319"
+"CodeBase"="file:///D:/EXCEL mibil/src/SpecHelper/bin/Release/SpecHelper.dll"
