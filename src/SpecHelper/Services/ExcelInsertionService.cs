@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Windows.Forms;
 using SpecHelper.Models;
 using Excel = Microsoft.Office.Interop.Excel;
 
@@ -50,12 +51,61 @@ namespace SpecHelper.Services
                     return (false, "Лист Excel защищен от изменений. Снимите защиту листа.");
                 }
 
-                // 1. Вставка обозначения в активную ячейку
-                activeCell.Value2 = item.Designation;
+                // Очистка значений от разрывов строк и табов для корректного разделения по столбцам
+                string designation = item.Designation ?? string.Empty;
+                string name = item.Name ?? string.Empty;
 
-                // 2. Вставка наименования в соседнюю ячейку справа (Offset[0, 1])
-                Excel.Range nameCell = activeCell.Offset[0, 1];
-                nameCell.Value2 = item.Name;
+                designation = designation.Replace("\r", " ").Replace("\n", " ").Replace("\t", " ");
+                name = name.Replace("\r", " ").Replace("\n", " ").Replace("\t", " ");
+
+                // Формируем строку: Обозначение [TAB] Наименование
+                string pasteText = $"{designation}\t{name}";
+
+                // 1. Сохраняем снимок текущего буфера обмена пользователя
+                DataObject previousClipboardSnapshot = SnapshotClipboard();
+
+                try
+                {
+                    // Помещаем в буфер обмена для вставки в Excel
+                    Clipboard.SetDataObject(pasteText, false, 5, 50);
+
+                    // Гарантируем, что выделена ровно одна активная ячейка
+                    activeCell.Select();
+
+                    // Вызываем нативную команду вставки Excel Ribbon (ExecuteMso "Paste").
+                    // Это создает полноценный шаг в стеке отмены Excel и позволяет отменять через Ctrl + Z!
+                    dynamic commandBars = excelApp.CommandBars;
+                    commandBars.ExecuteMso("Paste");
+                }
+                catch
+                {
+                    // Резервный способ (COM Interop) на случай, если команда ленты недоступна
+                    try
+                    {
+                        activeCell.Value2 = designation;
+                        Excel.Range nameCell = activeCell.Offset[0, 1];
+                        nameCell.Value2 = name;
+                    }
+                    catch (Exception ex)
+                    {
+                        return (false, $"Ошибка записи в ячейку: {ex.Message}");
+                    }
+                }
+                finally
+                {
+                    // 2. Немедленно восстанавливаем буфер обмена пользователя
+                    if (previousClipboardSnapshot != null)
+                    {
+                        try
+                        {
+                            Clipboard.SetDataObject(previousClipboardSnapshot, true, 5, 50);
+                        }
+                        catch
+                        {
+                            // Игнорируем ошибку восстановления пользовательского буфера
+                        }
+                    }
+                }
 
                 // 3. Автопереход на строку ниже для удобства серийного ввода
                 if (config != null && config.AutoAdvanceRow)
@@ -71,7 +121,7 @@ namespace SpecHelper.Services
                     }
                 }
 
-                return (true, $"Вставлено: {item.Designation}");
+                return (true, $"Вставлено: {designation}");
             }
             catch (COMException comEx)
             {
@@ -85,6 +135,43 @@ namespace SpecHelper.Services
             catch (Exception ex)
             {
                 return (false, $"Ошибка вставки: {ex.Message}");
+            }
+        }
+
+        private static DataObject SnapshotClipboard()
+        {
+            try
+            {
+                IDataObject current = Clipboard.GetDataObject();
+                if (current == null) return null;
+
+                DataObject snapshot = new DataObject();
+                string[] formats = current.GetFormats();
+                if (formats == null || formats.Length == 0) return null;
+
+                bool hasData = false;
+                foreach (string format in formats)
+                {
+                    try
+                    {
+                        object data = current.GetData(format);
+                        if (data != null)
+                        {
+                            snapshot.SetData(format, data);
+                            hasData = true;
+                        }
+                    }
+                    catch
+                    {
+                        // Некоторые OLE-форматы не могут быть сериализованы в память, пропускаем их
+                    }
+                }
+
+                return hasData ? snapshot : null;
+            }
+            catch
+            {
+                return null;
             }
         }
     }

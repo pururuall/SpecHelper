@@ -128,7 +128,17 @@ Assert-Test ($b5Val -eq $testBolt.Designation) "Ячейка B5 получила
 Assert-Test ($c5Val -eq $testBolt.Name) "Ячейка C5 получила Наименование: $c5Val"
 Assert-Test ($activeAfter -eq '$B$6') "Курсор автоматически перешел на строку ниже (B6)"
 
-# Тест 5.2: Защита от защищенных листов (ProtectContents)
+# Тест 5.2: Штатная отмена через Undo (Ctrl + Z)
+$excel.Undo()
+$b5AfterUndo = $ws.Range("B5").Value2
+$c5AfterUndo = $ws.Range("C5").Value2
+Assert-Test ($b5AfterUndo -eq $null -and $c5AfterUndo -eq $null) "Штатная отмена (Undo / Ctrl+Z) успешно откатила вставку" "B5='$b5AfterUndo', C5='$c5AfterUndo'"
+
+# Повторная вставка для проверки защиты листа
+$ws.Range("B5").Select() | Out-Null
+[SpecHelper.Services.ExcelInsertionService]::InsertItem($excel, $testBolt, $config) | Out-Null
+
+# Тест 5.3: Защита от защищенных листов (ProtectContents)
 $ws.Protect("test_password") | Out-Null
 $resProtected = [SpecHelper.Services.ExcelInsertionService]::InsertItem($excel, $testBolt, $config)
 Assert-Test ($resProtected.Item1 -eq $false -and $resProtected.Item2 -like "*защищен*") "Корректная обработка защищенного листа (без падения)" "Сообщение: $($resProtected.Item2)"
