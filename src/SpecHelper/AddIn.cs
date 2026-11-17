@@ -59,6 +59,7 @@ namespace SpecHelper
 
         private Excel.Application _excelApp;
         private CustomTaskPane _taskPane;
+        private Form _floatingForm;
         private SpecPaneControl _paneControl;
         private ICTPFactory _ctpFactory;
         private IRibbonUI _ribbon;
@@ -112,6 +113,12 @@ namespace SpecHelper
                 try { _taskPane.Visible = false; } catch { }
             }
 
+            if (_floatingForm != null && !_floatingForm.IsDisposed)
+            {
+                try { _floatingForm.Close(); _floatingForm.Dispose(); } catch { }
+                _floatingForm = null;
+            }
+
             _paneControl?.Dispose();
             _paneControl = null;
             _taskPane = null;
@@ -140,63 +147,75 @@ namespace SpecHelper
 
         private void EnsureTaskPaneCreatedAndVisible()
         {
-            if (_taskPane == null)
+            if (_taskPane == null && (_floatingForm == null || _floatingForm.IsDisposed))
             {
-                if (_ctpFactory == null)
+                bool ctpCreated = false;
+                if (_ctpFactory != null)
                 {
-                    Log("EnsureTaskPaneCreatedAndVisible: _ctpFactory is null, skipping creation");
-                    return;
-                }
-
-                try
-                {
-                    Log("Creating CustomTaskPane via CTPFactory...");
-                    _taskPane = _ctpFactory.CreateCTP("SpecHelper.UI.SpecPaneControl", "Справочник спецификаций", Type.Missing);
-                    Log("CreateCTP succeeded!");
-
-                    _taskPane.DockPosition = MsoCTPDockPosition.msoCTPDockPositionRight;
-                    _taskPane.DockPositionRestrict = MsoCTPDockPositionRestrict.msoCTPDockPositionRestrictNone;
-
                     try
                     {
-                        _taskPane.Width = 560;
-                    }
-                    catch (Exception wEx)
-                    {
-                        Log($"Width set error: {wEx.Message}");
-                    }
+                        Log("Creating CustomTaskPane via CTPFactory...");
+                        _taskPane = _ctpFactory.CreateCTP("SpecHelper.UI.SpecPaneControl", "Справочник спецификаций", Type.Missing);
+                        Log("CreateCTP succeeded!");
 
-                    _taskPane.DockPositionStateChange += (CustomTaskPane ctp) =>
-                    {
+                        _taskPane.DockPosition = MsoCTPDockPosition.msoCTPDockPositionRight;
+                        _taskPane.DockPositionRestrict = MsoCTPDockPositionRestrict.msoCTPDockPositionRestrictNone;
+
                         try
                         {
-                            if (ctp.DockPosition == MsoCTPDockPosition.msoCTPDockPositionRight ||
-                                ctp.DockPosition == MsoCTPDockPosition.msoCTPDockPositionLeft)
-                            {
-                                try { ctp.Width = 560; } catch { }
-                            }
-                            else if (ctp.DockPosition == MsoCTPDockPosition.msoCTPDockPositionBottom ||
-                                     ctp.DockPosition == MsoCTPDockPosition.msoCTPDockPositionTop)
-                            {
-                                try { ctp.Height = 360; } catch { }
-                            }
-
-                            _paneControl?.OnDockPositionChanged();
+                            _taskPane.Width = 560;
                         }
-                        catch { }
-                    };
+                        catch (Exception wEx)
+                        {
+                            Log($"Width set error: {wEx.Message}");
+                        }
 
-                    _paneControl = _taskPane.ContentControl as SpecPaneControl;
-                    if (_paneControl != null && _excelApp != null)
+                        _taskPane.DockPositionStateChange += (CustomTaskPane ctp) =>
+                        {
+                            try
+                            {
+                                if (ctp.DockPosition == MsoCTPDockPosition.msoCTPDockPositionRight ||
+                                    ctp.DockPosition == MsoCTPDockPosition.msoCTPDockPositionLeft)
+                                {
+                                    try { ctp.Width = 560; } catch { }
+                                }
+                                else if (ctp.DockPosition == MsoCTPDockPosition.msoCTPDockPositionBottom ||
+                                         ctp.DockPosition == MsoCTPDockPosition.msoCTPDockPositionTop)
+                                {
+                                    try { ctp.Height = 360; } catch { }
+                                }
+
+                                _paneControl?.OnDockPositionChanged();
+                            }
+                            catch { }
+                        };
+
+                        _paneControl = _taskPane.ContentControl as SpecPaneControl;
+                        if (_paneControl != null && _excelApp != null)
+                        {
+                            Log("Initializing SpecPaneControl in CustomTaskPane...");
+                            _paneControl.Initialize(_excelApp, _taskPane);
+                            Log("SpecPaneControl initialized successfully");
+                        }
+
+                        ctpCreated = true;
+                    }
+                    catch (Exception ex)
                     {
-                        Log("Initializing SpecPaneControl...");
-                        _paneControl.Initialize(_excelApp, _taskPane);
-                        Log("SpecPaneControl initialized successfully");
+                        Log($"CreateCTP failed or blocked by policy: {ex.Message}. Switching to fallback floating window.");
+                        _taskPane = null;
+                        ctpCreated = false;
                     }
                 }
-                catch (Exception ex)
+                else
                 {
-                    Log($"FATAL: Error creating CustomTaskPane: {ex}");
+                    Log("CTPFactory is null. Switching to fallback floating window.");
+                }
+
+                if (!ctpCreated)
+                {
+                    CreateOrShowFloatingWindow();
+                    return;
                 }
             }
 
@@ -213,8 +232,65 @@ namespace SpecHelper
                 }
                 catch (Exception vEx)
                 {
-                    Log($"Error setting Visible = true: {vEx.Message}");
+                    Log($"Error setting Visible = true on CTP: {vEx.Message}. Attempting floating window fallback.");
+                    CreateOrShowFloatingWindow();
                 }
+            }
+            else if (_floatingForm != null && !_floatingForm.IsDisposed)
+            {
+                CreateOrShowFloatingWindow();
+            }
+        }
+
+        private void CreateOrShowFloatingWindow()
+        {
+            try
+            {
+                if (_floatingForm == null || _floatingForm.IsDisposed)
+                {
+                    Log("Creating fallback floating window (Form TopMost)...");
+                    _floatingForm = new Form
+                    {
+                        Text = "Справочник спецификаций",
+                        Width = 580,
+                        Height = 720,
+                        MinimumSize = new System.Drawing.Size(350, 400),
+                        StartPosition = FormStartPosition.CenterScreen,
+                        TopMost = true,
+                        ShowIcon = false
+                    };
+
+                    _paneControl = new SpecPaneControl
+                    {
+                        Dock = DockStyle.Fill
+                    };
+                    _floatingForm.Controls.Add(_paneControl);
+
+                    _floatingForm.FormClosing += (s, e) =>
+                    {
+                        if (e.CloseReason == CloseReason.UserClosing)
+                        {
+                            e.Cancel = true;
+                            _floatingForm.Hide();
+                        }
+                    };
+
+                    if (_excelApp != null)
+                    {
+                        _paneControl.Initialize(_excelApp, null);
+                    }
+                    Log("Fallback floating window created successfully.");
+                }
+
+                if (!_floatingForm.Visible)
+                {
+                    _floatingForm.Show();
+                }
+                _floatingForm.BringToFront();
+            }
+            catch (Exception ex)
+            {
+                Log($"Error in CreateOrShowFloatingWindow: {ex.Message}");
             }
         }
 
@@ -276,14 +352,27 @@ namespace SpecHelper
         {
             try
             {
-                if (_taskPane == null)
+                if (_taskPane != null)
                 {
-                    EnsureTaskPaneCreatedAndVisible();
+                    _taskPane.Visible = !_taskPane.Visible;
+                    Log($"TogglePane: CTP visible now {_taskPane.Visible}");
+                }
+                else if (_floatingForm != null && !_floatingForm.IsDisposed)
+                {
+                    if (_floatingForm.Visible)
+                    {
+                        _floatingForm.Hide();
+                    }
+                    else
+                    {
+                        _floatingForm.Show();
+                        _floatingForm.BringToFront();
+                    }
+                    Log($"TogglePane: Floating form visible now {_floatingForm.Visible}");
                 }
                 else
                 {
-                    _taskPane.Visible = !_taskPane.Visible;
-                    Log($"TogglePane: visible now {_taskPane.Visible}");
+                    EnsureTaskPaneCreatedAndVisible();
                 }
             }
             catch (Exception ex)

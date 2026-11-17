@@ -79,6 +79,10 @@ namespace SpecHelper.UI
             }
 
             chkInFolder.Checked = _config.SearchCurrentFolderOnly;
+            if (btnDockToggle != null)
+            {
+                btnDockToggle.Visible = (taskPane != null);
+            }
             UpdateDockButtonText();
 
             // Служба автосинхронизации баз данных

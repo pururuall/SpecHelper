@@ -21,17 +21,38 @@ function Assert-Test($condition, $testName, $detail = "") {
     }
 }
 
-# ----------------------------------------------------------------------
-Write-Host "`n1. Проверка пакета для рабочего ПК (SpecHelper_РабочийПК)..." -ForegroundColor Yellow
-# ----------------------------------------------------------------------
-$pkgDir = "D:\EXCEL mibil\SpecHelper_РабочийПК"
-Assert-Test (Test-Path $pkgDir) "Папка пакета существует: $pkgDir"
+$rootDir = (Resolve-Path "$PSScriptRoot\..").Path
+$pkgDir = Join-Path $rootDir "SpecHelper_РабочийПК"
+$targetDir = "$env:LOCALAPPDATA\SpecHelper"
 
-$reqDlls = @("SpecHelper.dll", "ExcelDataReader.dll", "ExcelDataReader.DataSet.dll", "Newtonsoft.Json.dll")
+# ----------------------------------------------------------------------
+Write-Host "`n1. Проверка структуры автономных дистрибутивов..." -ForegroundColor Yellow
+# ----------------------------------------------------------------------
+Assert-Test (Test-Path $pkgDir) "Папка пакета существует: $pkgDir"
+Assert-Test (Test-Path (Join-Path $rootDir "bin")) "Корневая папка bin существует: $rootDir\bin"
+
+$reqDlls = @(
+    "SpecHelper.dll",
+    "ExcelDataReader.dll",
+    "ExcelDataReader.DataSet.dll",
+    "Newtonsoft.Json.dll",
+    "OFFICE.DLL",
+    "Microsoft.Office.Interop.Excel.dll",
+    "extensibility.dll"
+)
+
 foreach ($dll in $reqDlls) {
-    $dllPath = Join-Path $pkgDir "bin\$dll"
-    Assert-Test (Test-Path $dllPath) "Библиотека $dll присутствует в bin\"
+    $pDll = Join-Path $pkgDir "bin\$dll"
+    $rDll = Join-Path $rootDir "bin\$dll"
+    Assert-Test (Test-Path $pDll) "Библиотека $dll присутствует в SpecHelper_РабочийПК\bin"
+    Assert-Test (Test-Path $rDll) "Библиотека $dll присутствует в корневой bin\"
 }
+
+# Проверка отсутствия системных библиотек .NET (mscorlib.dll, System.*.dll)
+$bannedP = Get-ChildItem -Path (Join-Path $pkgDir "bin") -Include "mscorlib.dll", "System.*.dll" -Recurse
+$bannedR = Get-ChildItem -Path (Join-Path $rootDir "bin") -Include "mscorlib.dll", "System.*.dll" -Recurse
+Assert-Test ($bannedP.Count -eq 0) "В SpecHelper_РабочийПК\bin отсутствуют mscorlib.dll и System.*.dll"
+Assert-Test ($bannedR.Count -eq 0) "В корневой bin\ отсутствуют mscorlib.dll и System.*.dll"
 
 $reqDbs = @("Материалы.xlsx", "Метизы.xlsx", "Комплектующие.xlsx")
 foreach ($db in $reqDbs) {
@@ -39,30 +60,59 @@ foreach ($db in $reqDbs) {
     Assert-Test (Test-Path $dbPath) "Файл базы данных $db присутствует в databases\"
 }
 
-Assert-Test (Test-Path "$pkgDir\Установить.cmd") "Скрипт установки Установить.cmd присутствует"
-Assert-Test (Test-Path "$pkgDir\Удалить.cmd") "Скрипт удаления Удалить.cmd присутствует"
+Assert-Test (Test-Path "$pkgDir\Установить.cmd") "Скрипт установки Установить.cmd присутствует в SpecHelper_РабочийПК"
+Assert-Test (Test-Path "$pkgDir\Удалить.cmd") "Скрипт удаления Удалить.cmd присутствует в SpecHelper_РабочийПК"
+Assert-Test (Test-Path "$rootDir\Установить.cmd") "Скрипт установки Установить.cmd присутствует в корне проекта"
+Assert-Test (Test-Path "$rootDir\Удалить.cmd") "Скрипт удаления Удалить.cmd присутствует в корне проекта"
 
 # ----------------------------------------------------------------------
 Write-Host "`n2. Тестирование скрипта установки Установить.cmd (без прав админа)..." -ForegroundColor Yellow
 # ----------------------------------------------------------------------
-$installProc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$pkgDir\Установить.cmd`" < nul" -Wait -PassThru -NoNewWindow
+$installProc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"`"$pkgDir\Установить.cmd`" < nul`"" -Wait -PassThru -NoNewWindow
 Assert-Test ($installProc.ExitCode -eq 0) "Скрипт Установить.cmd выполнен без ошибок (ExitCode 0)"
 
-$targetDir = "$env:LOCALAPPDATA\SpecHelper"
 Assert-Test (Test-Path "$targetDir\SpecHelper.dll") "Файлы скопированы в профиль пользователя: $targetDir"
 Assert-Test (Test-Path "$targetDir\databases\Материалы.xlsx") "Базы скопированы в $targetDir\databases"
 
-# Проверка ключей реестра HKCU
+# Проверка отсутствия mscorlib.dll в целевой папке
+$bannedTarget = Get-ChildItem -Path $targetDir -Include "mscorlib.dll", "System.*.dll" -Recurse
+Assert-Test ($bannedTarget.Count -eq 0) "В целевой папке установки (%LOCALAPPDATA%\SpecHelper) отсутствуют mscorlib.dll и System.*.dll"
+
+# Проверка ключей реестра HKCU (32-bit и 64-bit ветки)
 $regAddin = Get-ItemProperty -Path "HKCU:\Software\Microsoft\Office\Excel\Addins\SpecHelper.AddIn" -ErrorAction SilentlyContinue
 Assert-Test ($regAddin -ne $null -and $regAddin.LoadBehavior -eq 3) "Регистрация в HKCU Excel Addins: LoadBehavior = 3"
 
+$regAddinWow = Get-ItemProperty -Path "HKCU:\Software\Wow6432Node\Microsoft\Office\Excel\Addins\SpecHelper.AddIn" -ErrorAction SilentlyContinue
+Assert-Test ($regAddinWow -ne $null -and $regAddinWow.LoadBehavior -eq 3) "Регистрация в HKCU Wow6432Node Excel Addins: LoadBehavior = 3"
+
 $clsidAddIn = "{A19845E6-5F24-4B78-8316-D4E03C1247AA}"
-$regClsid = Get-ItemProperty -Path "HKCU:\Software\Classes\CLSID\$clsidAddIn\InprocServer32" -ErrorAction SilentlyContinue
-Assert-Test ($regClsid -ne $null -and $regClsid.CodeBase -like "*SpecHelper.dll*") "COM-регистрация SpecHelper.AddIn в HKCU Classes"
+$regClsidAddin = Get-ItemProperty -Path "HKCU:\Software\Classes\CLSID\$clsidAddIn\InprocServer32" -ErrorAction SilentlyContinue
+Assert-Test ($regClsidAddin -ne $null -and $regClsidAddin.CodeBase -like "*SpecHelper.dll*") "COM-регистрация AddIn в HKCU\Software\Classes\CLSID"
+
+$regClsidAddinWow = Get-ItemProperty -Path "HKCU:\Software\Classes\WOW6432Node\CLSID\$clsidAddIn\InprocServer32" -ErrorAction SilentlyContinue
+Assert-Test ($regClsidAddinWow -ne $null -and $regClsidAddinWow.CodeBase -like "*SpecHelper.dll*") "COM-регистрация AddIn в HKCU\Software\Classes\WOW6432Node\CLSID"
 
 $clsidCtrl = "{D86F2C74-3208-4CE0-A4F7-1B8C512F9E82}"
 $regCtrl = Get-ItemProperty -Path "HKCU:\Software\Classes\CLSID\$clsidCtrl\InprocServer32" -ErrorAction SilentlyContinue
-Assert-Test ($regCtrl -ne $null -and $regCtrl.CodeBase -like "*SpecHelper.dll*") "COM-регистрация SpecPaneControl в HKCU Classes"
+Assert-Test ($regCtrl -ne $null -and $regCtrl.CodeBase -like "*SpecHelper.dll*") "COM-регистрация SpecPaneControl в HKCU\Software\Classes\CLSID"
+
+$regCtrlWow = Get-ItemProperty -Path "HKCU:\Software\Classes\WOW6432Node\CLSID\$clsidCtrl\InprocServer32" -ErrorAction SilentlyContinue
+Assert-Test ($regCtrlWow -ne $null -and $regCtrlWow.CodeBase -like "*SpecHelper.dll*") "COM-регистрация SpecPaneControl в HKCU\Software\Classes\WOW6432Node\CLSID"
+
+# Проверка обязательных ключей ActiveX-контрола (Control и Implemented Categories)
+$ctrlKey = "HKCU:\Software\Classes\CLSID\$clsidCtrl\Control"
+$cat1Key = "HKCU:\Software\Classes\CLSID\$clsidCtrl\Implemented Categories\{40FC6ED4-2438-11CF-A3DB-080036F12502}"
+$cat2Key = "HKCU:\Software\Classes\CLSID\$clsidCtrl\Implemented Categories\{62C8FE65-4EBB-45E7-B440-6E39B2CDBF29}"
+Assert-Test (Test-Path $ctrlKey) "Присутствует маркер ActiveX Control в CLSID"
+Assert-Test (Test-Path $cat1Key) "Присутствует маркер Implemented Categories {40FC6ED4-...} в CLSID"
+Assert-Test (Test-Path $cat2Key) "Присутствует маркер Implemented Categories {62C8FE65-...} в CLSID"
+
+$ctrlKeyWow = "HKCU:\Software\Classes\WOW6432Node\CLSID\$clsidCtrl\Control"
+$cat1KeyWow = "HKCU:\Software\Classes\WOW6432Node\CLSID\$clsidCtrl\Implemented Categories\{40FC6ED4-2438-11CF-A3DB-080036F12502}"
+$cat2KeyWow = "HKCU:\Software\Classes\WOW6432Node\CLSID\$clsidCtrl\Implemented Categories\{62C8FE65-4EBB-45E7-B440-6E39B2CDBF29}"
+Assert-Test (Test-Path $ctrlKeyWow) "Присутствует маркер ActiveX Control в WOW6432Node\CLSID"
+Assert-Test (Test-Path $cat1KeyWow) "Присутствует маркер Implemented Categories {40FC6ED4-...} в WOW6432Node\CLSID"
+Assert-Test (Test-Path $cat2KeyWow) "Присутствует маркер Implemented Categories {62C8FE65-...} в WOW6432Node\CLSID"
 
 # ----------------------------------------------------------------------
 Write-Host "`n3. Тестирование загрузки надстройки в Excel (COM Automation)..." -ForegroundColor Yellow
@@ -80,9 +130,8 @@ Assert-Test ($addin.Connect -eq $true) "Надстройка успешно по
 
 # Проверка лога инициализации
 $logContent = if (Test-Path $logPath) { Get-Content $logPath -Raw } else { "" }
-Assert-Test ($logContent -like "*CreateCTP succeeded!*") "CustomTaskPane успешно создан фабрикой Excel"
-Assert-Test ($logContent -like "*SpecPaneControl initialized successfully*") "Элемент SpecPaneControl успешно инициализирован"
-Assert-Test ($logContent -like "*_taskPane.Visible is now true*") "Панель задач переведена в состояние Visible = True"
+Assert-Test ($logContent -like "*CreateCTP succeeded!*" -or $logContent -like "*Fallback floating window*") "Панель или резервное плавающее окно успешно инициализировано"
+Assert-Test ($logContent -like "*SpecPaneControl initialized successfully*" -or $logContent -like "*Fallback floating window created successfully*") "SpecPaneControl успешно инициализирован"
 Assert-Test ($logContent -notlike "*FATAL*") "В логе инициализации отсутствуют критические ошибки (FATAL)"
 
 # ----------------------------------------------------------------------
@@ -152,14 +201,23 @@ $excel.Quit()
 # ----------------------------------------------------------------------
 Write-Host "`n6. Тестирование скрипта удаления Удалить.cmd..." -ForegroundColor Yellow
 # ----------------------------------------------------------------------
-$uninstProc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$pkgDir\Удалить.cmd`" < nul" -Wait -PassThru -NoNewWindow
+$uninstProc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"`"$pkgDir\Удалить.cmd`" < nul`"" -Wait -PassThru -NoNewWindow
 Assert-Test ($uninstProc.ExitCode -eq 0) "Скрипт Удалить.cmd выполнен успешно"
 
 $regAfterUninst = Get-ItemProperty -Path "HKCU:\Software\Microsoft\Office\Excel\Addins\SpecHelper.AddIn" -ErrorAction SilentlyContinue
-Assert-Test ($regAfterUninst -eq $null) "Регистрация надстройки удалена из реестра Excel"
+Assert-Test ($regAfterUninst -eq $null) "Регистрация надстройки удалена из реестра Excel (HKCU)"
+
+$regAfterUninstWow = Get-ItemProperty -Path "HKCU:\Software\Wow6432Node\Microsoft\Office\Excel\Addins\SpecHelper.AddIn" -ErrorAction SilentlyContinue
+Assert-Test ($regAfterUninstWow -eq $null) "Регистрация надстройки удалена из реестра Excel (WOW6432Node)"
+
+$regCtrlAfter = Get-ItemProperty -Path "HKCU:\Software\Classes\CLSID\$clsidCtrl" -ErrorAction SilentlyContinue
+Assert-Test ($regCtrlAfter -eq $null) "CLSID SpecPaneControl удален из реестра (CLSID)"
+
+$regCtrlWowAfter = Get-ItemProperty -Path "HKCU:\Software\Classes\WOW6432Node\CLSID\$clsidCtrl" -ErrorAction SilentlyContinue
+Assert-Test ($regCtrlWowAfter -eq $null) "CLSID SpecPaneControl удален из реестра (WOW6432Node\CLSID)"
 
 # Повторно накатываем Установить.cmd, чтобы оставить систему в готовом рабочем состоянии
-$reinstallProc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$pkgDir\Установить.cmd`" < nul" -Wait -PassThru -NoNewWindow
+$reinstallProc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"`"$pkgDir\Установить.cmd`" < nul`"" -Wait -PassThru -NoNewWindow
 Assert-Test ($reinstallProc.ExitCode -eq 0) "Повторный запуск Установить.cmd восстановил готовность системы"
 
 $sw.Stop()
