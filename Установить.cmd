@@ -62,13 +62,17 @@ for %%B in ("HKCU\Software\Classes\CLSID" "HKCU\Software\Classes\WOW6432Node\CLS
     reg add "%%~B\%CLSID_ADDIN%\InprocServer32" /ve /d "mscoree.dll" /f >nul
     reg add "%%~B\%CLSID_ADDIN%\InprocServer32" /v "ThreadingModel" /d "Both" /f >nul
     reg add "%%~B\%CLSID_ADDIN%\InprocServer32" /v "Class" /d "SpecHelper.AddIn" /f >nul
-    reg add "%%~B\%CLSID_ADDIN%\InprocServer32" /v "Assembly" /d "SpecHelper, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" /f >nul
+    reg add "%%~B\%CLSID_ADDIN%\InprocServer32" /v "Assembly" /d "SpecHelper, Version=1.1.0.0, Culture=neutral, PublicKeyToken=null" /f >nul
     reg add "%%~B\%CLSID_ADDIN%\InprocServer32" /v "RuntimeVersion" /d "v4.0.30319" /f >nul
     reg add "%%~B\%CLSID_ADDIN%\InprocServer32" /v "CodeBase" /d "%CODEBASE%" /f >nul
     reg add "%%~B\%CLSID_ADDIN%\InprocServer32\1.0.0.0" /v "Class" /d "SpecHelper.AddIn" /f >nul
     reg add "%%~B\%CLSID_ADDIN%\InprocServer32\1.0.0.0" /v "Assembly" /d "SpecHelper, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" /f >nul
     reg add "%%~B\%CLSID_ADDIN%\InprocServer32\1.0.0.0" /v "RuntimeVersion" /d "v4.0.30319" /f >nul
     reg add "%%~B\%CLSID_ADDIN%\InprocServer32\1.0.0.0" /v "CodeBase" /d "%CODEBASE%" /f >nul
+    reg add "%%~B\%CLSID_ADDIN%\InprocServer32\1.1.0.0" /v "Class" /d "SpecHelper.AddIn" /f >nul
+    reg add "%%~B\%CLSID_ADDIN%\InprocServer32\1.1.0.0" /v "Assembly" /d "SpecHelper, Version=1.1.0.0, Culture=neutral, PublicKeyToken=null" /f >nul
+    reg add "%%~B\%CLSID_ADDIN%\InprocServer32\1.1.0.0" /v "RuntimeVersion" /d "v4.0.30319" /f >nul
+    reg add "%%~B\%CLSID_ADDIN%\InprocServer32\1.1.0.0" /v "CodeBase" /d "%CODEBASE%" /f >nul
 )
 
 rem Registratsiya CLSID SpecPaneControl s obyazatelnymi markerami ActiveX v obe vetki
@@ -78,13 +82,17 @@ for %%B in ("HKCU\Software\Classes\CLSID" "HKCU\Software\Classes\WOW6432Node\CLS
     reg add "%%~B\%CLSID_CTRL%\InprocServer32" /ve /d "mscoree.dll" /f >nul
     reg add "%%~B\%CLSID_CTRL%\InprocServer32" /v "ThreadingModel" /d "Both" /f >nul
     reg add "%%~B\%CLSID_CTRL%\InprocServer32" /v "Class" /d "SpecHelper.UI.SpecPaneControl" /f >nul
-    reg add "%%~B\%CLSID_CTRL%\InprocServer32" /v "Assembly" /d "SpecHelper, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" /f >nul
+    reg add "%%~B\%CLSID_CTRL%\InprocServer32" /v "Assembly" /d "SpecHelper, Version=1.1.0.0, Culture=neutral, PublicKeyToken=null" /f >nul
     reg add "%%~B\%CLSID_CTRL%\InprocServer32" /v "RuntimeVersion" /d "v4.0.30319" /f >nul
     reg add "%%~B\%CLSID_CTRL%\InprocServer32" /v "CodeBase" /d "%CODEBASE%" /f >nul
     reg add "%%~B\%CLSID_CTRL%\InprocServer32\1.0.0.0" /v "Class" /d "SpecHelper.UI.SpecPaneControl" /f >nul
     reg add "%%~B\%CLSID_CTRL%\InprocServer32\1.0.0.0" /v "Assembly" /d "SpecHelper, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" /f >nul
     reg add "%%~B\%CLSID_CTRL%\InprocServer32\1.0.0.0" /v "RuntimeVersion" /d "v4.0.30319" /f >nul
     reg add "%%~B\%CLSID_CTRL%\InprocServer32\1.0.0.0" /v "CodeBase" /d "%CODEBASE%" /f >nul
+    reg add "%%~B\%CLSID_CTRL%\InprocServer32\1.1.0.0" /v "Class" /d "SpecHelper.UI.SpecPaneControl" /f >nul
+    reg add "%%~B\%CLSID_CTRL%\InprocServer32\1.1.0.0" /v "Assembly" /d "SpecHelper, Version=1.1.0.0, Culture=neutral, PublicKeyToken=null" /f >nul
+    reg add "%%~B\%CLSID_CTRL%\InprocServer32\1.1.0.0" /v "RuntimeVersion" /d "v4.0.30319" /f >nul
+    reg add "%%~B\%CLSID_CTRL%\InprocServer32\1.1.0.0" /v "CodeBase" /d "%CODEBASE%" /f >nul
     reg add "%%~B\%CLSID_CTRL%\Control" /f >nul
     reg add "%%~B\%CLSID_CTRL%\Implemented Categories\{40FC6ED4-2438-11CF-A3DB-080036F12502}" /f >nul
     reg add "%%~B\%CLSID_CTRL%\Implemented Categories\{62C8FE65-4EBB-45E7-B440-6E39B2CDBF29}" /f >nul

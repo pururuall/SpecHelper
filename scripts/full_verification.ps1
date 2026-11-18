@@ -225,14 +225,14 @@ Write-Host "`n7. Тестирование службы автообновлен�
 # ----------------------------------------------------------------------
 $asm = [System.Reflection.Assembly]::LoadFrom("$targetDir\SpecHelper.dll")
 $asmVer = $asm.GetName().Version.ToString()
-Assert-Test ($asmVer -eq "1.0.0.0") "AssemblyVersion остался 1.0.0.0 для обратной совместимости с COM в реестре"
+Assert-Test ($asmVer -eq "1.1.0.0") "AssemblyVersion повышен до 1.1.0.0"
 
 $fileVerAttr = [Attribute]::GetCustomAttribute($asm, [System.Reflection.AssemblyFileVersionAttribute])
 $fileVer = if ($fileVerAttr) { $fileVerAttr.Version } else { "" }
-Assert-Test ($fileVer -eq "1.0.0.0") "AssemblyFileVersion равен 1.0.0.0"
+Assert-Test ($fileVer -eq "1.1.0.0") "AssemblyFileVersion равен 1.1.0.0"
 
 $currServiceVer = [SpecHelper.Services.UpdateService]::GetCurrentAssemblyFileVersion()
-Assert-Test ($currServiceVer.ToString() -eq "1.0.0.0") "UpdateService.GetCurrentAssemblyFileVersion() вернул $currServiceVer"
+Assert-Test ($currServiceVer.ToString() -eq "1.1.0.0") "UpdateService.GetCurrentAssemblyFileVersion() вернул $currServiceVer"
 
 $swOffline = [System.Diagnostics.Stopwatch]::StartNew()
 $offlineCheck = [SpecHelper.Services.UpdateService]::CheckForUpdates($null, "https://192.0.2.1/version.json")
