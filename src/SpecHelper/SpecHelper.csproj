@@ -54,6 +54,9 @@
     <Reference Include="Microsoft.CSharp">
       <Private>False</Private>
     </Reference>
+    <Reference Include="System.IO.Compression.FileSystem">
+      <Private>False</Private>
+    </Reference>
     <!-- Local self-contained Office References -->
     <Reference Include="extensibility">
       <HintPath>..\..\lib\extensibility.dll</HintPath>
@@ -94,6 +97,7 @@
     <Compile Include="Services\DatabaseWatcher.cs" />
     <Compile Include="Services\ExcelCatalogReader.cs" />
     <Compile Include="Services\ExcelInsertionService.cs" />
+    <Compile Include="Services\UpdateService.cs" />
     <Compile Include="UI\SettingsForm.cs">
       <SubType>Form</SubType>
     </Compile>

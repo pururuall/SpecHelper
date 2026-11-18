@@ -220,6 +220,25 @@ Assert-Test ($regCtrlWowAfter -eq $null) "CLSID SpecPaneControl удален и�
 $reinstallProc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"`"$pkgDir\Установить.cmd`" < nul`"" -Wait -PassThru -NoNewWindow
 Assert-Test ($reinstallProc.ExitCode -eq 0) "Повторный запуск Установить.cmd восстановил готовность системы"
 
+# ----------------------------------------------------------------------
+Write-Host "`n7. Тестирование службы автообновления (UpdateService)..." -ForegroundColor Yellow
+# ----------------------------------------------------------------------
+$asm = [System.Reflection.Assembly]::LoadFrom("$targetDir\SpecHelper.dll")
+$asmVer = $asm.GetName().Version.ToString()
+Assert-Test ($asmVer -eq "1.0.0.0") "AssemblyVersion остался 1.0.0.0 для обратной совместимости с COM в реестре"
+
+$fileVerAttr = [Attribute]::GetCustomAttribute($asm, [System.Reflection.AssemblyFileVersionAttribute])
+$fileVer = if ($fileVerAttr) { $fileVerAttr.Version } else { "" }
+Assert-Test ($fileVer -eq "1.0.0.0") "AssemblyFileVersion равен 1.0.0.0"
+
+$currServiceVer = [SpecHelper.Services.UpdateService]::GetCurrentAssemblyFileVersion()
+Assert-Test ($currServiceVer.ToString() -eq "1.0.0.0") "UpdateService.GetCurrentAssemblyFileVersion() вернул $currServiceVer"
+
+$swOffline = [System.Diagnostics.Stopwatch]::StartNew()
+$offlineCheck = [SpecHelper.Services.UpdateService]::CheckForUpdates($null, "https://192.0.2.1/version.json")
+$swOffline.Stop()
+Assert-Test ($offlineCheck -eq $false -and $swOffline.Elapsed.TotalSeconds -le 7) "Офлайн-проверка (таймаут 5 сек) завершается тихо без исключений ($($swOffline.Elapsed.TotalSeconds.ToString('F2')) сек)"
+
 $sw.Stop()
 
 # ----------------------------------------------------------------------

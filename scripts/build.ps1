@@ -108,7 +108,7 @@ foreach ($tb in $targetBinDirs) {
 }
 
 # Копирование баз данных в пакет SpecHelper_РабочийПК\databases
-Write-Host "`n[4/4] Синхронизация каталогов баз данных..." -ForegroundColor Yellow
+Write-Host "`n[4/5] Синхронизация каталогов баз данных..." -ForegroundColor Yellow
 $srcDb = Join-Path $rootDir "databases"
 $pkgDb = Join-Path $rootDir "SpecHelper_РабочийПК\databases"
 if (Test-Path $srcDb) {
@@ -117,8 +117,17 @@ if (Test-Path $srcDb) {
     Write-Host "Базы данных скопированы в $pkgDb" -ForegroundColor Green
 }
 
+# 5. Упаковка zip-архива для GitHub Releases
+Write-Host "`n[5/5] Создание архива для GitHub Releases (SpecHelper_Update.zip)..." -ForegroundColor Yellow
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$zipOut = Join-Path $rootDir "SpecHelper_Update.zip"
+if (Test-Path $zipOut) { Remove-Item $zipOut -Force }
+[System.IO.Compression.ZipFile]::CreateFromDirectory((Join-Path $rootDir "bin"), $zipOut)
+Write-Host "Архив готов: $zipOut" -ForegroundColor Green
+
 Write-Host "`n================================================================" -ForegroundColor Cyan
 Write-Host "СБОРКА УСПЕШНО ЗАВЕРШЕНА!" -ForegroundColor Green
 Write-Host "Автономный пакет готов в: SpecHelper_РабочийПК" -ForegroundColor Green
 Write-Host "Корневая папка bin готова: $rootDir\bin" -ForegroundColor Green
+Write-Host "Архив для релиза готов: $zipOut" -ForegroundColor Green
 Write-Host "================================================================" -ForegroundColor Cyan

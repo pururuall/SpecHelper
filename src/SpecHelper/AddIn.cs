@@ -102,6 +102,7 @@ namespace SpecHelper
         {
             Log("OnStartupComplete start");
             EnsureTaskPaneCreatedAndVisible();
+            UpdateService.CheckForUpdatesAsync(_excelApp);
             Log("OnStartupComplete end");
         }
 
