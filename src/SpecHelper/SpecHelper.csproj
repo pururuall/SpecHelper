@@ -92,11 +92,13 @@
     <Compile Include="Models\CatalogItem.cs" />
     <Compile Include="Models\CatalogNode.cs" />
     <Compile Include="Models\PluginConfig.cs" />
+    <Compile Include="Models\TemplateItem.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Services\ConfigManager.cs" />
     <Compile Include="Services\DatabaseWatcher.cs" />
     <Compile Include="Services\ExcelCatalogReader.cs" />
     <Compile Include="Services\ExcelInsertionService.cs" />
+    <Compile Include="Services\TemplateService.cs" />
     <Compile Include="Services\UpdateService.cs" />
     <Compile Include="UI\SettingsForm.cs">
       <SubType>Form</SubType>

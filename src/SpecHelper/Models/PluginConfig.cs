@@ -7,6 +7,7 @@ namespace SpecHelper.Models
         public string MaterialsPath { get; set; } = string.Empty;
         public string HardwarePath { get; set; } = string.Empty;
         public string ComponentsPath { get; set; } = string.Empty;
+        public string TemplatesPath { get; set; } = string.Empty;
 
         public bool AutoSyncEnabled { get; set; } = true;
         public int SyncDebounceMs { get; set; } = 800;

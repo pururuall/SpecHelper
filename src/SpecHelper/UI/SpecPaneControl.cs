@@ -45,6 +45,24 @@ namespace SpecHelper.UI
         private TabPage tabMaterials;
         private TabPage tabHardware;
         private TabPage tabComponents;
+        private TabPage tabTemplates;
+
+        // Элементы вкладки "Шаблоны"
+        private Panel pnlTemplatesView;
+        private Panel pnlTemplatesHeader;
+        private FlowLayoutPanel flowTemplatesSearch;
+        private FlowLayoutPanel flowTemplatesActions;
+        private Label lblSearchTemplates;
+        private TextBox txtSearchTemplates;
+        private Button btnClearSearchTemplates;
+        private Button btnRefreshTemplates;
+        private Button btnOpenTemplateFile;
+        private Button btnSettingsTemplates;
+        private ListBox lstTemplates;
+        private Panel pnlTemplatesFooter;
+        private Label lblTemplateStatus;
+        private Button btnInsertTemplate;
+        private List<TemplateItem> _allTemplates = new List<TemplateItem>();
 
         private SplitContainer splitContainer;
         private TreeView treeView;
@@ -213,8 +231,9 @@ namespace SpecHelper.UI
             tabMaterials = new TabPage("Материалы");
             tabHardware = new TabPage("Метизы и крепеж");
             tabComponents = new TabPage("Комплектующие");
+            tabTemplates = new TabPage("Шаблоны");
 
-            tabCatalogs.TabPages.AddRange(new TabPage[] { tabMaterials, tabHardware, tabComponents });
+            tabCatalogs.TabPages.AddRange(new TabPage[] { tabMaterials, tabHardware, tabComponents, tabTemplates });
             tabCatalogs.SelectedIndexChanged += TabCatalogs_SelectedIndexChanged;
 
             // ================= 3. НИЖНЯЯ ПАНЕЛЬ (FOOTER) =================
@@ -365,7 +384,152 @@ namespace SpecHelper.UI
 
             splitContainer.Panel2.Controls.Add(gridItems);
 
+            // ================= 5. ПАНЕЛЬ ВКЛАДКИ ШАБЛОНЫ =================
+            pnlTemplatesView = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(240, 243, 246),
+                Visible = false
+            };
+
+            pnlTemplatesHeader = new Panel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                BackColor = Color.FromArgb(235, 238, 242),
+                Padding = new Padding(4)
+            };
+
+            flowTemplatesSearch = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                WrapContents = true,
+                FlowDirection = FlowDirection.LeftToRight,
+                BackColor = Color.Transparent,
+                Margin = new Padding(0)
+            };
+
+            lblSearchTemplates = new Label
+            {
+                Text = "Поиск:",
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(20, 20, 20),
+                AutoSize = true,
+                Margin = new Padding(4, 7, 2, 2)
+            };
+
+            txtSearchTemplates = new TextBox
+            {
+                Width = 180,
+                Height = 24,
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Regular),
+                BackColor = Color.White,
+                ForeColor = Color.FromArgb(15, 15, 15),
+                BorderStyle = BorderStyle.FixedSingle,
+                Margin = new Padding(2, 4, 0, 2)
+            };
+            txtSearchTemplates.TextChanged += (s, e) => ApplyTemplateFilter();
+
+            btnClearSearchTemplates = CreateStyledButton("✕", 26, 25);
+            btnClearSearchTemplates.Font = new Font("Segoe UI", 8F, FontStyle.Bold);
+            btnClearSearchTemplates.Margin = new Padding(1, 4, 6, 2);
+            btnClearSearchTemplates.Click += (s, e) => { txtSearchTemplates.Clear(); txtSearchTemplates.Focus(); };
+
+            flowTemplatesSearch.Controls.AddRange(new Control[] { lblSearchTemplates, txtSearchTemplates, btnClearSearchTemplates });
+
+            flowTemplatesActions = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                WrapContents = true,
+                FlowDirection = FlowDirection.LeftToRight,
+                BackColor = Color.Transparent,
+                Margin = new Padding(0, 4, 0, 0)
+            };
+
+            btnRefreshTemplates = CreateStyledButton("🔄 Обновить", 110, 27);
+            btnRefreshTemplates.Click += (s, e) => RefreshTemplatesSafely();
+
+            btnOpenTemplateFile = CreateStyledButton("📁 Открыть файл шаблонов", 195, 27);
+            btnOpenTemplateFile.Click += (s, e) => OpenTemplateFile();
+
+            btnSettingsTemplates = CreateStyledButton("Настройки", 90, 27);
+            btnSettingsTemplates.Click += BtnSettings_Click;
+
+            flowTemplatesActions.Controls.AddRange(new Control[] { btnRefreshTemplates, btnOpenTemplateFile, btnSettingsTemplates });
+
+            pnlTemplatesHeader.Controls.Add(flowTemplatesActions);
+            pnlTemplatesHeader.Controls.Add(flowTemplatesSearch);
+
+            pnlTemplatesFooter = new Panel
+            {
+                Dock = DockStyle.Bottom,
+                Height = 84,
+                Padding = new Padding(8, 6, 8, 8),
+                BackColor = Color.FromArgb(232, 235, 240)
+            };
+
+            lblTemplateStatus = new Label
+            {
+                Dock = DockStyle.Top,
+                Height = 28,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Text = "Выберите шаблон и целевую ячейку в столбце A",
+                Font = new Font("Segoe UI", 9F, FontStyle.Regular),
+                ForeColor = Color.FromArgb(20, 20, 20),
+                AutoEllipsis = true
+            };
+
+            btnInsertTemplate = new Button
+            {
+                Text = "Вставить шаблон [Enter]",
+                Dock = DockStyle.Bottom,
+                Height = 38,
+                BackColor = Color.FromArgb(16, 124, 65), // Excel Green
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                Cursor = Cursors.Hand
+            };
+            btnInsertTemplate.FlatAppearance.BorderSize = 0;
+            btnInsertTemplate.Click += (s, e) => InsertSelectedTemplate();
+
+            pnlTemplatesFooter.Controls.Add(btnInsertTemplate);
+            pnlTemplatesFooter.Controls.Add(lblTemplateStatus);
+
+            lstTemplates = new ListBox
+            {
+                Dock = DockStyle.Fill,
+                BorderStyle = BorderStyle.None,
+                Font = new Font("Segoe UI", 10F, FontStyle.Regular),
+                ItemHeight = 32,
+                BackColor = Color.White,
+                ForeColor = Color.FromArgb(15, 15, 15),
+                IntegralHeight = false,
+                DrawMode = DrawMode.OwnerDrawFixed
+            };
+            lstTemplates.DrawItem += LstTemplates_DrawItem;
+            lstTemplates.SelectedIndexChanged += LstTemplates_SelectedIndexChanged;
+            lstTemplates.DoubleClick += (s, e) => InsertSelectedTemplate();
+            lstTemplates.KeyDown += (s, e) =>
+            {
+                if (e.KeyCode == Keys.Enter)
+                {
+                    e.Handled = true;
+                    InsertSelectedTemplate();
+                }
+            };
+
+            pnlTemplatesView.Controls.Add(lstTemplates);
+            pnlTemplatesView.Controls.Add(pnlTemplatesHeader);
+            pnlTemplatesView.Controls.Add(pnlTemplatesFooter);
+
             // Сборка элементов
+            this.Controls.Add(pnlTemplatesView);
             this.Controls.Add(splitContainer);
             this.Controls.Add(tabCatalogs);
             this.Controls.Add(pnlHeader);
@@ -641,8 +805,177 @@ namespace SpecHelper.UI
 
         private void TabCatalogs_SelectedIndexChanged(object sender, EventArgs e)
         {
-            txtSearch.Clear();
-            RefreshCurrentView();
+            if (tabCatalogs.SelectedTab == tabTemplates)
+            {
+                pnlHeader.Visible = false;
+                pnlFooter.Visible = false;
+                splitContainer.Visible = false;
+                pnlTemplatesView.Visible = true;
+                pnlTemplatesView.BringToFront();
+                ReloadTemplates();
+            }
+            else
+            {
+                pnlTemplatesView.Visible = false;
+                pnlHeader.Visible = true;
+                pnlFooter.Visible = true;
+                splitContainer.Visible = true;
+                txtSearch.Clear();
+                RefreshCurrentView();
+            }
+        }
+
+        private void LstTemplates_DrawItem(object sender, DrawItemEventArgs e)
+        {
+            if (e.Index < 0 || e.Index >= lstTemplates.Items.Count) return;
+            bool selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+            Color bg = selected ? Color.FromArgb(16, 124, 65) : (e.Index % 2 == 0 ? Color.White : Color.FromArgb(248, 249, 251));
+            Color fg = selected ? Color.White : Color.FromArgb(20, 20, 20);
+            Color subFg = selected ? Color.FromArgb(220, 240, 225) : Color.FromArgb(120, 130, 140);
+
+            using (var b = new SolidBrush(bg))
+            {
+                e.Graphics.FillRectangle(b, e.Bounds);
+            }
+
+            if (lstTemplates.Items[e.Index] is TemplateItem t)
+            {
+                using (var fontMain = new Font(e.Font.FontFamily, 9.5F, FontStyle.Bold))
+                using (var fontSub = new Font(e.Font.FontFamily, 8.5F, FontStyle.Regular))
+                using (var brushFg = new SolidBrush(fg))
+                using (var brushSub = new SolidBrush(subFg))
+                {
+                    var rectMain = new Rectangle(e.Bounds.X + 8, e.Bounds.Y + 4, e.Bounds.Width - 95, e.Bounds.Height - 8);
+                    var sf = new StringFormat { LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter };
+                    e.Graphics.DrawString(t.Name, fontMain, brushFg, rectMain, sf);
+
+                    string countText = $"{t.RowCount} стр.";
+                    var rectSub = new Rectangle(e.Bounds.Right - 85, e.Bounds.Y + 4, 75, e.Bounds.Height - 8);
+                    var sfRight = new StringFormat { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center };
+                    e.Graphics.DrawString(countText, fontSub, brushSub, rectSub, sfRight);
+                }
+            }
+        }
+
+        private void LstTemplates_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (lstTemplates.SelectedItem is TemplateItem t)
+            {
+                lblTemplateStatus.Text = $"Выбран: {t.Name} (строки {t.StartRow}–{t.EndRow}, {t.RowCount} строк)";
+            }
+            else
+            {
+                lblTemplateStatus.Text = "Выберите шаблон и целевую ячейку в столбце A";
+            }
+        }
+
+        private void ReloadTemplates()
+        {
+            try
+            {
+                lblTemplateStatus.Text = "Чтение файла шаблонов...";
+                Application.DoEvents();
+
+                string path = TemplateService.GetTemplatesFilePath(_config);
+                _allTemplates = TemplateService.LoadTemplates(path);
+                ApplyTemplateFilter();
+
+                // Фоновое открытие книги без задержки при последующей вставке
+                TemplateService.EnsureBackgroundWorkbookOpened(ExcelApp, path);
+
+                if (_allTemplates.Count > 0)
+                {
+                    lblTemplateStatus.Text = $"Загружено шаблонов: {_allTemplates.Count}";
+                }
+                else
+                {
+                    lblTemplateStatus.Text = $"Шаблоны не найдены в файле {Path.GetFileName(path)}";
+                }
+            }
+            catch (Exception ex)
+            {
+                lblTemplateStatus.Text = $"Ошибка загрузки шаблонов: {ex.Message}";
+            }
+        }
+
+        private void RefreshTemplatesSafely()
+        {
+            try
+            {
+                lblTemplateStatus.Text = "Перезагрузка книги шаблонов...";
+                Application.DoEvents();
+
+                // 1. Безопасно закрываем старую фоновую книгу
+                TemplateService.CloseBackgroundWorkbook();
+
+                // 2. Перечитываем файл шаблонов
+                string path = TemplateService.GetTemplatesFilePath(_config);
+                _allTemplates = TemplateService.LoadTemplates(path);
+                ApplyTemplateFilter();
+
+                // 3. Предзагружаем книгу в фоне
+                TemplateService.EnsureBackgroundWorkbookOpened(ExcelApp, path);
+
+                if (_allTemplates.Count > 0)
+                {
+                    lblTemplateStatus.Text = $"Шаблоны обновлены в {DateTime.Now:HH:mm:ss} (загружено: {_allTemplates.Count})";
+                }
+                else
+                {
+                    lblTemplateStatus.Text = $"Шаблоны не найдены в файле {Path.GetFileName(path)}";
+                }
+            }
+            catch (Exception ex)
+            {
+                lblTemplateStatus.Text = $"Ошибка обновления: {ex.Message}";
+            }
+        }
+
+        private void ApplyTemplateFilter()
+        {
+            string query = txtSearchTemplates.Text.Trim();
+            IEnumerable<TemplateItem> items = _allTemplates;
+            if (!string.IsNullOrEmpty(query))
+            {
+                items = items.Where(t => t.Name != null && t.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0);
+            }
+
+            lstTemplates.BeginUpdate();
+            lstTemplates.Items.Clear();
+            foreach (var t in items)
+            {
+                lstTemplates.Items.Add(t);
+            }
+            if (lstTemplates.Items.Count > 0)
+            {
+                lstTemplates.SelectedIndex = 0;
+            }
+            lstTemplates.EndUpdate();
+        }
+
+        private void InsertSelectedTemplate()
+        {
+            if (lstTemplates.SelectedItem is TemplateItem selected)
+            {
+                string path = TemplateService.GetTemplatesFilePath(_config);
+                var result = TemplateService.InsertTemplate(ExcelApp, path, selected);
+                lblTemplateStatus.Text = result.Message;
+                if (!result.Success)
+                {
+                    System.Media.SystemSounds.Beep.Play();
+                }
+            }
+            else
+            {
+                lblTemplateStatus.Text = "Выберите шаблон из списка для вставки.";
+                System.Media.SystemSounds.Beep.Play();
+            }
+        }
+
+        private void OpenTemplateFile()
+        {
+            string path = TemplateService.GetTemplatesFilePath(_config);
+            TemplateService.OpenTemplateFile(ExcelApp, path);
         }
 
         private void BtnToggleTree_Click(object sender, EventArgs e)
@@ -671,6 +1004,10 @@ namespace SpecHelper.UI
                     _config = form.CurrentConfig;
                     _watcher.UpdatePaths(_config);
                     ReloadAllCatalogs();
+                    if (tabCatalogs.SelectedTab == tabTemplates)
+                    {
+                        ReloadTemplates();
+                    }
                 }
             }
         }
@@ -722,6 +1059,7 @@ namespace SpecHelper.UI
         {
             if (disposing)
             {
+                TemplateService.CloseBackgroundWorkbook();
                 _watcher?.Dispose();
             }
             base.Dispose(disposing);

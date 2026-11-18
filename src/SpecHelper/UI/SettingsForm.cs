@@ -12,6 +12,7 @@ namespace SpecHelper.UI
         private TextBox txtMaterials;
         private TextBox txtHardware;
         private TextBox txtComponents;
+        private TextBox txtTemplates;
         private CheckBox chkAutoSync;
         private CheckBox chkAutoAdvance;
         private NumericUpDown numDebounce;
@@ -31,7 +32,7 @@ namespace SpecHelper.UI
         {
             this.Text = "Настройки справочников SpecHelper";
             this.Width = 620;
-            this.Height = 380;
+            this.Height = 435;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
@@ -48,51 +49,58 @@ namespace SpecHelper.UI
             this.Controls.Add(lblHeader);
 
             // Материалы
-            var lblMat = new Label { Text = "Материалы:", Location = new Point(15, 45), AutoSize = true };
-            txtMaterials = new TextBox { Location = new Point(15, 65), Width = 480 };
-            var btnBrowseMat = new Button { Text = "Обзор...", Location = new Point(502, 63), Width = 85, Height = 26 };
+            var lblMat = new Label { Text = "Материалы:", Location = new Point(15, 42), AutoSize = true };
+            txtMaterials = new TextBox { Location = new Point(15, 62), Width = 480 };
+            var btnBrowseMat = new Button { Text = "Обзор...", Location = new Point(502, 60), Width = 85, Height = 26 };
             btnBrowseMat.Click += (s, e) => BrowseFile(txtMaterials, "Выберите файл базы Материалов");
             this.Controls.AddRange(new Control[] { lblMat, txtMaterials, btnBrowseMat });
 
             // Метизы
-            var lblHw = new Label { Text = "Метизы и стандартные изделия:", Location = new Point(15, 100), AutoSize = true };
-            txtHardware = new TextBox { Location = new Point(15, 120), Width = 480 };
-            var btnBrowseHw = new Button { Text = "Обзор...", Location = new Point(502, 118), Width = 85, Height = 26 };
+            var lblHw = new Label { Text = "Метизы и стандартные изделия:", Location = new Point(15, 95), AutoSize = true };
+            txtHardware = new TextBox { Location = new Point(15, 115), Width = 480 };
+            var btnBrowseHw = new Button { Text = "Обзор...", Location = new Point(502, 113), Width = 85, Height = 26 };
             btnBrowseHw.Click += (s, e) => BrowseFile(txtHardware, "Выберите файл базы Метизов");
             this.Controls.AddRange(new Control[] { lblHw, txtHardware, btnBrowseHw });
 
             // Комплектующие
-            var lblComp = new Label { Text = "Покупные комплектующие:", Location = new Point(15, 155), AutoSize = true };
-            txtComponents = new TextBox { Location = new Point(15, 175), Width = 480 };
-            var btnBrowseComp = new Button { Text = "Обзор...", Location = new Point(502, 173), Width = 85, Height = 26 };
+            var lblComp = new Label { Text = "Покупные комплектующие:", Location = new Point(15, 148), AutoSize = true };
+            txtComponents = new TextBox { Location = new Point(15, 168), Width = 480 };
+            var btnBrowseComp = new Button { Text = "Обзор...", Location = new Point(502, 166), Width = 85, Height = 26 };
             btnBrowseComp.Click += (s, e) => BrowseFile(txtComponents, "Выберите файл базы Комплектующих");
             this.Controls.AddRange(new Control[] { lblComp, txtComponents, btnBrowseComp });
+
+            // Шаблоны
+            var lblTemplates = new Label { Text = "База шаблонов узлов и изделий:", Location = new Point(15, 201), AutoSize = true };
+            txtTemplates = new TextBox { Location = new Point(15, 221), Width = 480 };
+            var btnBrowseTemplates = new Button { Text = "Обзор...", Location = new Point(502, 219), Width = 85, Height = 26 };
+            btnBrowseTemplates.Click += (s, e) => BrowseFile(txtTemplates, "Выберите файл базы Шаблонов");
+            this.Controls.AddRange(new Control[] { lblTemplates, txtTemplates, btnBrowseTemplates });
 
             // Опции
             chkAutoSync = new CheckBox
             {
                 Text = "Фоновое автообновление при изменении файлов на диске",
-                Location = new Point(15, 215),
+                Location = new Point(15, 260),
                 AutoSize = true
             };
 
             chkAutoAdvance = new CheckBox
             {
                 Text = "Автоматически переходить на строку ниже после вставки позиции",
-                Location = new Point(15, 240),
+                Location = new Point(15, 285),
                 AutoSize = true
             };
 
             var lblDebounce = new Label
             {
                 Text = "Задержка обновления (мс):",
-                Location = new Point(15, 270),
+                Location = new Point(15, 315),
                 AutoSize = true
             };
 
             numDebounce = new NumericUpDown
             {
-                Location = new Point(185, 268),
+                Location = new Point(185, 313),
                 Width = 80,
                 Minimum = 200,
                 Maximum = 5000,
@@ -102,8 +110,8 @@ namespace SpecHelper.UI
             this.Controls.AddRange(new Control[] { chkAutoSync, chkAutoAdvance, lblDebounce, numDebounce });
 
             // Кнопки
-            btnSave = new Button { Text = "Сохранить", DialogResult = DialogResult.OK, Location = new Point(390, 295), Width = 95, Height = 30 };
-            btnCancel = new Button { Text = "Отмена", DialogResult = DialogResult.Cancel, Location = new Point(495, 295), Width = 92, Height = 30 };
+            btnSave = new Button { Text = "Сохранить", DialogResult = DialogResult.OK, Location = new Point(390, 350), Width = 95, Height = 30 };
+            btnCancel = new Button { Text = "Отмена", DialogResult = DialogResult.Cancel, Location = new Point(495, 350), Width = 92, Height = 30 };
 
             btnSave.Click += BtnSave_Click;
             this.AcceptButton = btnSave;
@@ -117,6 +125,7 @@ namespace SpecHelper.UI
             txtMaterials.Text = CurrentConfig.MaterialsPath ?? string.Empty;
             txtHardware.Text = CurrentConfig.HardwarePath ?? string.Empty;
             txtComponents.Text = CurrentConfig.ComponentsPath ?? string.Empty;
+            txtTemplates.Text = CurrentConfig.TemplatesPath ?? string.Empty;
 
             chkAutoSync.Checked = CurrentConfig.AutoSyncEnabled;
             chkAutoAdvance.Checked = CurrentConfig.AutoAdvanceRow;
@@ -146,6 +155,7 @@ namespace SpecHelper.UI
             CurrentConfig.MaterialsPath = txtMaterials.Text.Trim();
             CurrentConfig.HardwarePath = txtHardware.Text.Trim();
             CurrentConfig.ComponentsPath = txtComponents.Text.Trim();
+            CurrentConfig.TemplatesPath = txtTemplates.Text.Trim();
             CurrentConfig.AutoSyncEnabled = chkAutoSync.Checked;
             CurrentConfig.AutoAdvanceRow = chkAutoAdvance.Checked;
             CurrentConfig.SyncDebounceMs = (int)numDebounce.Value;

@@ -54,7 +54,7 @@ $bannedR = Get-ChildItem -Path (Join-Path $rootDir "bin") -Include "mscorlib.dll
 Assert-Test ($bannedP.Count -eq 0) "В SpecHelper_РабочийПК\bin отсутствуют mscorlib.dll и System.*.dll"
 Assert-Test ($bannedR.Count -eq 0) "В корневой bin\ отсутствуют mscorlib.dll и System.*.dll"
 
-$reqDbs = @("Материалы.xlsx", "Метизы.xlsx", "Комплектующие.xlsx")
+$reqDbs = @("Материалы.xlsx", "Метизы.xlsx", "Комплектующие.xlsx", "Шаблоны.xlsx")
 foreach ($db in $reqDbs) {
     $dbPath = Join-Path $pkgDir "databases\$db"
     Assert-Test (Test-Path $dbPath) "Файл базы данных $db присутствует в databases\"
@@ -238,6 +238,67 @@ $swOffline = [System.Diagnostics.Stopwatch]::StartNew()
 $offlineCheck = [SpecHelper.Services.UpdateService]::CheckForUpdates($null, "https://192.0.2.1/version.json")
 $swOffline.Stop()
 Assert-Test ($offlineCheck -eq $false -and $swOffline.Elapsed.TotalSeconds -le 7) "Офлайн-проверка (таймаут 5 сек) завершается тихо без исключений ($($swOffline.Elapsed.TotalSeconds.ToString('F2')) сек)"
+
+# ----------------------------------------------------------------------
+Write-Host "`n8. Тестирование модуля шаблонов (TemplateService и вкладка 'Шаблоны')..." -ForegroundColor Yellow
+# ----------------------------------------------------------------------
+$templatesPath = [SpecHelper.Services.TemplateService]::GetTemplatesFilePath($null)
+Assert-Test (Test-Path $templatesPath) "Файл шаблонов успешно обнаружен: $templatesPath"
+
+$templatesList = [SpecHelper.Services.TemplateService]::LoadTemplates($templatesPath)
+Assert-Test ($templatesList.Count -eq 3) "Считано ровно 3 демонстрационных шаблона (фактически: $($templatesList.Count))"
+
+$tpl1 = $templatesList | Where-Object { $_.Name -eq "Коробка распашная" }
+Assert-Test ($tpl1 -ne $null -and $tpl1.StartRow -eq 6 -and $tpl1.EndRow -eq 10 -and $tpl1.RowCount -eq 5) "Шаблон 'Коробка распашная' распознан (строки 6..10, 5 строк)"
+
+$tpl2 = $templatesList | Where-Object { $_.Name -eq "Тумба подвесная 600" }
+Assert-Test ($tpl2 -ne $null -and $tpl2.StartRow -eq 16 -and $tpl2.EndRow -eq 20 -and $tpl2.RowCount -eq 5) "Шаблон 'Тумба подвесная 600' распознан (строки 16..20, 5 строк)"
+
+$tpl3 = $templatesList | Where-Object { $_.Name -eq "Ящик выдвижной 500" }
+Assert-Test ($tpl3 -ne $null -and $tpl3.StartRow -eq 26 -and $tpl3.EndRow -eq 30 -and $tpl3.RowCount -eq 5) "Шаблон 'Ящик выдвижной 500' распознан (строки 26..30, 5 строк)"
+
+# Тестирование нативной вставки шаблона в рабочий лист Excel
+$excelTpl = New-Object -ComObject Excel.Application
+$excelTpl.Visible = $false
+$excelTpl.DisplayAlerts = $false
+$wbTest = $excelTpl.Workbooks.Add()
+$wsTest = $wbTest.Worksheets.Item(1)
+$wsTest.Cells.Item(1, 1).Value2 = "Обозначение"
+$wsTest.Cells.Item(1, 2).Value2 = "Наименование"
+$wsTest.Cells.Item(2, 1).Value2 = "Существующая строка внизу"
+
+# Выбираем ячейку A2 (вставка должна сдвинуть существующую строку вниз)
+$targetCell = $wsTest.Cells.Item(2, 1)
+$targetCell.Select() | Out-Null
+
+$insertResult = [SpecHelper.Services.TemplateService]::InsertTemplate($excelTpl, $templatesPath, $tpl1)
+Assert-Test ($insertResult.Item1 -eq $true) "Вставка шаблона в Excel завершилась успехом" "Сообщение: $($insertResult.Item2)"
+
+$cellName = $wsTest.Cells.Item(2, 2).Value2
+Assert-Test ($cellName -eq "Боковина короба 720х300") "Ячейка B2 содержит наименование детали: '$cellName'"
+
+$formulaMult = $wsTest.Cells.Item(2, 5).Formula
+Assert-Test ($formulaMult -eq "=C2*D2") "Формула умножения перенесена и скорректирована: '$formulaMult'"
+
+$formulaSum = $wsTest.Cells.Item(6, 5).Formula
+Assert-Test ($formulaSum -eq "=SUM(E2:E5)") "Итоговая формула суммы перенесена и скорректирована: '$formulaSum'"
+
+$shiftedVal = $wsTest.Cells.Item(7, 1).Value2
+Assert-Test ($shiftedVal -eq "Существующая строка внизу") "Существующие данные сдвинуты вниз на строку 7: '$shiftedVal'"
+
+# Тест 8.2: Повторная мгновенная вставка из кэша (No Re-open Lag)
+$swFast = [System.Diagnostics.Stopwatch]::StartNew()
+$insertResult2 = [SpecHelper.Services.TemplateService]::InsertTemplate($excelTpl, $templatesPath, $tpl2)
+$swFast.Stop()
+Assert-Test ($insertResult2.Item1 -eq $true -and $swFast.ElapsedMilliseconds -lt 500) "Повторная вставка выполнена без задержки открытия с диска ($($swFast.ElapsedMilliseconds) мс)"
+
+# Тест 8.3: Безопасное закрытие фоновой книги
+[SpecHelper.Services.TemplateService]::CloseBackgroundWorkbook()
+Assert-Test ($true) "Метод CloseBackgroundWorkbook() успешно освободил фоновую книгу без ошибок"
+
+$wbTest.Close($false)
+$excelTpl.Quit()
+[System.Runtime.InteropServices.Marshal]::ReleaseComObject($excelTpl) | Out-Null
 
 $sw.Stop()
 

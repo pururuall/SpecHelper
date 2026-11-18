@@ -109,6 +109,8 @@ namespace SpecHelper
         public void OnDisconnection(ext_DisconnectMode RemoveMode, ref Array custom)
         {
             Log("OnDisconnection");
+            try { TemplateService.CloseBackgroundWorkbook(); } catch { }
+
             if (_taskPane != null)
             {
                 try { _taskPane.Visible = false; } catch { }
@@ -129,6 +131,7 @@ namespace SpecHelper
         public void OnBeginShutdown(ref Array custom)
         {
             Log("OnBeginShutdown");
+            try { TemplateService.CloseBackgroundWorkbook(); } catch { }
         }
 
         public void OnAddInsUpdate(ref Array custom)

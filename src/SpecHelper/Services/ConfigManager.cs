@@ -85,6 +85,10 @@ namespace SpecHelper.Services
                 {
                     config.ComponentsPath = Path.Combine(folder, "Комплектующие.xlsx");
                 }
+                if (string.IsNullOrWhiteSpace(config.TemplatesPath) && File.Exists(Path.Combine(folder, "Шаблоны.xlsx")))
+                {
+                    config.TemplatesPath = Path.Combine(folder, "Шаблоны.xlsx");
+                }
             }
         }
     }
