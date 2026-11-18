@@ -10,9 +10,10 @@ obj/
 *.sln.docstates
 *.log
 
-# NuGet packages (can be restored)
+# NuGet packages & tools
 packages/
 .tools/
+.scratch/
 
 # User-specific / Local Data
 *.xlsx
