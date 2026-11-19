@@ -13,6 +13,7 @@ namespace SpecHelper.UI
         private TextBox txtHardware;
         private TextBox txtComponents;
         private TextBox txtTemplates;
+        private TextBox txtTechProcesses;
         private CheckBox chkAutoSync;
         private CheckBox chkAutoAdvance;
         private NumericUpDown numDebounce;
@@ -32,7 +33,7 @@ namespace SpecHelper.UI
         {
             this.Text = "Настройки справочников SpecHelper";
             this.Width = 620;
-            this.Height = 435;
+            this.Height = 490;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
@@ -41,7 +42,7 @@ namespace SpecHelper.UI
 
             var lblHeader = new Label
             {
-                Text = "Пути к файлам баз данных (.xlsx):",
+                Text = "Пути к файлам баз данных (.xlsx / .xls):",
                 Location = new Point(15, 12),
                 AutoSize = true,
                 Font = new Font("Segoe UI", 9.5F, FontStyle.Bold)
@@ -76,31 +77,38 @@ namespace SpecHelper.UI
             btnBrowseTemplates.Click += (s, e) => BrowseFile(txtTemplates, "Выберите файл базы Шаблонов");
             this.Controls.AddRange(new Control[] { lblTemplates, txtTemplates, btnBrowseTemplates });
 
+            // Техпроцессы
+            var lblTp = new Label { Text = "База техпроцессов и операций:", Location = new Point(15, 254), AutoSize = true };
+            txtTechProcesses = new TextBox { Location = new Point(15, 274), Width = 480 };
+            var btnBrowseTp = new Button { Text = "Обзор...", Location = new Point(502, 272), Width = 85, Height = 26 };
+            btnBrowseTp.Click += (s, e) => BrowseFile(txtTechProcesses, "Выберите файл базы Техпроцессов");
+            this.Controls.AddRange(new Control[] { lblTp, txtTechProcesses, btnBrowseTp });
+
             // Опции
             chkAutoSync = new CheckBox
             {
                 Text = "Фоновое автообновление при изменении файлов на диске",
-                Location = new Point(15, 260),
+                Location = new Point(15, 313),
                 AutoSize = true
             };
 
             chkAutoAdvance = new CheckBox
             {
                 Text = "Автоматически переходить на строку ниже после вставки позиции",
-                Location = new Point(15, 285),
+                Location = new Point(15, 338),
                 AutoSize = true
             };
 
             var lblDebounce = new Label
             {
                 Text = "Задержка обновления (мс):",
-                Location = new Point(15, 315),
+                Location = new Point(15, 368),
                 AutoSize = true
             };
 
             numDebounce = new NumericUpDown
             {
-                Location = new Point(185, 313),
+                Location = new Point(185, 366),
                 Width = 80,
                 Minimum = 200,
                 Maximum = 5000,
@@ -110,8 +118,8 @@ namespace SpecHelper.UI
             this.Controls.AddRange(new Control[] { chkAutoSync, chkAutoAdvance, lblDebounce, numDebounce });
 
             // Кнопки
-            btnSave = new Button { Text = "Сохранить", DialogResult = DialogResult.OK, Location = new Point(390, 350), Width = 95, Height = 30 };
-            btnCancel = new Button { Text = "Отмена", DialogResult = DialogResult.Cancel, Location = new Point(495, 350), Width = 92, Height = 30 };
+            btnSave = new Button { Text = "Сохранить", DialogResult = DialogResult.OK, Location = new Point(390, 403), Width = 95, Height = 30 };
+            btnCancel = new Button { Text = "Отмена", DialogResult = DialogResult.Cancel, Location = new Point(495, 403), Width = 92, Height = 30 };
 
             btnSave.Click += BtnSave_Click;
             this.AcceptButton = btnSave;
@@ -126,6 +134,7 @@ namespace SpecHelper.UI
             txtHardware.Text = CurrentConfig.HardwarePath ?? string.Empty;
             txtComponents.Text = CurrentConfig.ComponentsPath ?? string.Empty;
             txtTemplates.Text = CurrentConfig.TemplatesPath ?? string.Empty;
+            txtTechProcesses.Text = CurrentConfig.TechProcessesPath ?? string.Empty;
 
             chkAutoSync.Checked = CurrentConfig.AutoSyncEnabled;
             chkAutoAdvance.Checked = CurrentConfig.AutoAdvanceRow;
@@ -156,6 +165,7 @@ namespace SpecHelper.UI
             CurrentConfig.HardwarePath = txtHardware.Text.Trim();
             CurrentConfig.ComponentsPath = txtComponents.Text.Trim();
             CurrentConfig.TemplatesPath = txtTemplates.Text.Trim();
+            CurrentConfig.TechProcessesPath = txtTechProcesses.Text.Trim();
             CurrentConfig.AutoSyncEnabled = chkAutoSync.Checked;
             CurrentConfig.AutoAdvanceRow = chkAutoAdvance.Checked;
             CurrentConfig.SyncDebounceMs = (int)numDebounce.Value;
