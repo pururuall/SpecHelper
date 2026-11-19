@@ -241,6 +241,7 @@ namespace SpecHelper.Services
                         ReadOnly: true
                     );
                     _isOpenedByUs = true;
+                    try { _cachedWorkbook.Saved = true; } catch { }
 
                     try
                     {
@@ -250,6 +251,8 @@ namespace SpecHelper.Services
                         }
                     }
                     catch { }
+
+                    try { _cachedWorkbook.Saved = true; } catch { }
                 }
                 catch (Exception ex)
                 {
@@ -270,8 +273,9 @@ namespace SpecHelper.Services
                 {
                     try
                     {
-                        if (_isOpenedByUs)
+                        if (_isOpenedByUs && _cachedWorkbook != null)
                         {
+                            try { _cachedWorkbook.Saved = true; } catch { }
                             _cachedWorkbook.Close(false);
                         }
                     }
@@ -374,6 +378,11 @@ namespace SpecHelper.Services
                 }
                 finally
                 {
+                    if (_cachedWorkbook != null && _isOpenedByUs)
+                    {
+                        try { _cachedWorkbook.Saved = true; } catch { }
+                    }
+
                     // Гарантированно возвращаем обновление экрана
                     try
                     {
