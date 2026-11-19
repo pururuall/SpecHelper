@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0.0",
-  "url": "https://github.com/pururuall/SpecHelper/releases/download/v1.2.0/SpecHelper_Update.zip",
-  "notes": "Добавлена вкладка ТП с выбором операций галочками по всем листам и подбором техпроцессов."
+  "version": "1.2.1.0",
+  "url": "https://github.com/pururuall/SpecHelper/releases/download/v1.2.1/SpecHelper_Update.zip",
+  "notes": "Устранено всплывающее диалоговое окно с вопросом о сохранении файла шаблонов при закрытии Excel."
 }

@@ -39,6 +39,7 @@ if exist "%BIN_DIR%\Microsoft.Office.Interop.Excel.dll" copy /y "%BIN_DIR%\Micro
 if exist "%BIN_DIR%\extensibility.dll" copy /y "%BIN_DIR%\extensibility.dll" "%TARGET_DIR%\" >nul
 
 if exist "%DB_DIR%" copy /y "%DB_DIR%\*.xlsx" "%TARGET_DIR%\databases\" >nul
+if exist "%DB_DIR%" copy /y "%DB_DIR%\*.xls" "%TARGET_DIR%\databases\" >nul
 
 echo [2/3] Registratsiya v reestre HKCU (32-bit i 64-bit Office)...
 
