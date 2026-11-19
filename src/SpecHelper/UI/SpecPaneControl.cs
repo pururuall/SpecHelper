@@ -46,6 +46,7 @@ namespace SpecHelper.UI
         private TabPage tabHardware;
         private TabPage tabComponents;
         private TabPage tabTemplates;
+        private TabPage tabTechProcesses;
 
         // Элементы вкладки "Шаблоны"
         private Panel pnlTemplatesView;
@@ -63,6 +64,31 @@ namespace SpecHelper.UI
         private Label lblTemplateStatus;
         private Button btnInsertTemplate;
         private List<TemplateItem> _allTemplates = new List<TemplateItem>();
+
+        // Элементы вкладки "ТП" (Техпроцессы)
+        private Panel pnlTechProcessesView;
+        private Panel pnlTpHeader;
+        private FlowLayoutPanel flowTpSearchRow;
+        private FlowLayoutPanel flowTpActionsRow;
+        private Label lblSearchTp;
+        private TextBox txtSearchTp;
+        private Button btnClearSearchTp;
+        private Button btnResetOps;
+        private Button btnRefreshTp;
+        private Button btnSettingsTp;
+        private SplitContainer splitTpContainer;
+        private Label lblOperationsTitle;
+        private TabControl tabOperationSheets;
+        private DataGridView gridOperations;
+        private Label lblTechProcessesTitle;
+        private DataGridView gridTechProcesses;
+        private Panel pnlTpFooter;
+        private Label lblTpStatus;
+        private Button btnInsertTp;
+
+        private TechProcessCatalogData _tpData = new TechProcessCatalogData();
+        private readonly HashSet<string> _selectedOperationCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private bool _isUpdatingOpGrid = false;
 
         private SplitContainer splitContainer;
         private TreeView treeView;
@@ -103,12 +129,10 @@ namespace SpecHelper.UI
             }
             UpdateDockButtonText();
 
-            // Служба автосинхронизации баз данных
             _watcher = new DatabaseWatcher(_config.SyncDebounceMs);
             _watcher.FileChanged += Watcher_FileChanged;
             _watcher.UpdatePaths(_config);
 
-            // Первичная загрузка каталогов
             ReloadAllCatalogs();
         }
 
@@ -130,7 +154,6 @@ namespace SpecHelper.UI
                 Padding = new Padding(4, 4, 4, 4)
             };
 
-            // Строка 1: Поиск и фильтрация
             flowSearchRow = new FlowLayoutPanel
             {
                 Dock = DockStyle.Top,
@@ -185,7 +208,6 @@ namespace SpecHelper.UI
 
             flowSearchRow.Controls.AddRange(new Control[] { lblSearch, txtSearch, btnClearSearch, chkInFolder });
 
-            // Строка 2: Кнопки управления
             flowButtonsRow = new FlowLayoutPanel
             {
                 Dock = DockStyle.Top,
@@ -232,8 +254,9 @@ namespace SpecHelper.UI
             tabHardware = new TabPage("Метизы и крепеж");
             tabComponents = new TabPage("Комплектующие");
             tabTemplates = new TabPage("Шаблоны");
+            tabTechProcesses = new TabPage("ТП");
 
-            tabCatalogs.TabPages.AddRange(new TabPage[] { tabMaterials, tabHardware, tabComponents, tabTemplates });
+            tabCatalogs.TabPages.AddRange(new TabPage[] { tabMaterials, tabHardware, tabComponents, tabTemplates, tabTechProcesses });
             tabCatalogs.SelectedIndexChanged += TabCatalogs_SelectedIndexChanged;
 
             // ================= 3. НИЖНЯЯ ПАНЕЛЬ (FOOTER) =================
@@ -251,7 +274,7 @@ namespace SpecHelper.UI
                 Dock = DockStyle.Right,
                 Width = 240,
                 Height = 32,
-                BackColor = Color.FromArgb(16, 124, 65), // Excel Green
+                BackColor = Color.FromArgb(16, 124, 65),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
@@ -274,8 +297,6 @@ namespace SpecHelper.UI
             pnlFooter.Controls.Add(btnInsert);
 
             // ================= 4. ЦЕНТРАЛЬНЫЙ SPLITCONTAINER =================
-            // В вертикальной боковой панели TreeView размещается СВЕРХУ, DataGridView — СНИЗУ.
-            // Это гарантирует, что таблица занимает 100% ширины панели и не сплющивается!
             splitContainer = new SplitContainer
             {
                 Dock = DockStyle.Fill,
@@ -301,7 +322,6 @@ namespace SpecHelper.UI
                 }
             };
 
-            // Дерево разделов (TreeView)
             treeView = new TreeView
             {
                 Dock = DockStyle.Fill,
@@ -319,7 +339,6 @@ namespace SpecHelper.UI
             treeView.AfterSelect += TreeView_AfterSelect;
             splitContainer.Panel1.Controls.Add(treeView);
 
-            // Таблица позиций (DataGridView)
             gridItems = new DataGridView
             {
                 Dock = DockStyle.Fill,
@@ -341,24 +360,8 @@ namespace SpecHelper.UI
                 EnableHeadersVisualStyles = false
             };
 
-            // Стиль заголовков колонок
-            gridItems.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(225, 230, 238);
-            gridItems.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(20, 20, 20);
-            gridItems.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            gridItems.ColumnHeadersHeight = 28;
+            StyleDataGridView(gridItems);
 
-            // Стиль строк данных: ЧЕТКИЙ ТЕМНЫЙ ТЕКСТ НА БЕЛОМ ФОНЕ
-            gridItems.DefaultCellStyle.BackColor = Color.White;
-            gridItems.DefaultCellStyle.ForeColor = Color.FromArgb(15, 15, 15);
-            gridItems.DefaultCellStyle.SelectionBackColor = Color.FromArgb(16, 124, 65);
-            gridItems.DefaultCellStyle.SelectionForeColor = Color.White;
-
-            gridItems.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(245, 247, 251);
-            gridItems.AlternatingRowsDefaultCellStyle.ForeColor = Color.FromArgb(15, 15, 15);
-            gridItems.AlternatingRowsDefaultCellStyle.SelectionBackColor = Color.FromArgb(16, 124, 65);
-            gridItems.AlternatingRowsDefaultCellStyle.SelectionForeColor = Color.White;
-
-            // Колонка 1: Обозначение
             var colDesig = new DataGridViewTextBoxColumn
             {
                 HeaderText = "Обозначение",
@@ -368,7 +371,6 @@ namespace SpecHelper.UI
                 MinimumWidth = 120
             };
 
-            // Колонка 2: Наименование
             var colName = new DataGridViewTextBoxColumn
             {
                 HeaderText = "Наименование",
@@ -489,7 +491,7 @@ namespace SpecHelper.UI
                 Text = "Вставить шаблон [Enter]",
                 Dock = DockStyle.Bottom,
                 Height = 38,
-                BackColor = Color.FromArgb(16, 124, 65), // Excel Green
+                BackColor = Color.FromArgb(16, 124, 65),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold),
@@ -528,7 +530,11 @@ namespace SpecHelper.UI
             pnlTemplatesView.Controls.Add(pnlTemplatesHeader);
             pnlTemplatesView.Controls.Add(pnlTemplatesFooter);
 
+            // ================= 6. ПАНЕЛЬ ВКЛАДКИ ТП (ТЕХПРОЦЕССЫ) =================
+            InitializeTechProcessesView();
+
             // Сборка элементов
+            this.Controls.Add(pnlTechProcessesView);
             this.Controls.Add(pnlTemplatesView);
             this.Controls.Add(splitContainer);
             this.Controls.Add(tabCatalogs);
@@ -537,6 +543,333 @@ namespace SpecHelper.UI
 
             this.ResumeLayout(false);
             this.PerformLayout();
+        }
+
+        private void InitializeTechProcessesView()
+        {
+            pnlTechProcessesView = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(240, 243, 246),
+                Visible = false
+            };
+
+            pnlTpHeader = new Panel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                BackColor = Color.FromArgb(235, 238, 242),
+                Padding = new Padding(4)
+            };
+
+            flowTpSearchRow = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                WrapContents = true,
+                FlowDirection = FlowDirection.LeftToRight,
+                BackColor = Color.Transparent,
+                Margin = new Padding(0)
+            };
+
+            lblSearchTp = new Label
+            {
+                Text = "Поиск:",
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(20, 20, 20),
+                AutoSize = true,
+                Margin = new Padding(4, 7, 2, 2)
+            };
+
+            txtSearchTp = new TextBox
+            {
+                Width = 175,
+                Height = 24,
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Regular),
+                BackColor = Color.White,
+                ForeColor = Color.FromArgb(15, 15, 15),
+                BorderStyle = BorderStyle.FixedSingle,
+                Margin = new Padding(2, 4, 0, 2)
+            };
+            txtSearchTp.TextChanged += (s, e) =>
+            {
+                PopulateOperationsGrid();
+                ApplyTechProcessFilter();
+            };
+
+            btnClearSearchTp = CreateStyledButton("✕", 26, 25);
+            btnClearSearchTp.Font = new Font("Segoe UI", 8F, FontStyle.Bold);
+            btnClearSearchTp.Margin = new Padding(1, 4, 6, 2);
+            btnClearSearchTp.Click += (s, e) => { txtSearchTp.Clear(); txtSearchTp.Focus(); };
+
+            btnResetOps = CreateStyledButton("Сбросить галочки", 130, 25);
+            btnResetOps.Margin = new Padding(2, 4, 4, 2);
+            btnResetOps.Enabled = false;
+            btnResetOps.Click += (s, e) =>
+            {
+                _selectedOperationCodes.Clear();
+                UpdateResetOpsButton();
+                PopulateOperationsGrid();
+                ApplyTechProcessFilter();
+            };
+
+            flowTpSearchRow.Controls.AddRange(new Control[] { lblSearchTp, txtSearchTp, btnClearSearchTp, btnResetOps });
+
+            flowTpActionsRow = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                WrapContents = true,
+                FlowDirection = FlowDirection.LeftToRight,
+                BackColor = Color.Transparent,
+                Margin = new Padding(0, 4, 0, 0)
+            };
+
+            btnRefreshTp = CreateStyledButton("Обновить", 85, 27);
+            btnRefreshTp.Click += (s, e) => ReloadTechProcesses();
+
+            btnSettingsTp = CreateStyledButton("Настройки", 90, 27);
+            btnSettingsTp.Click += BtnSettings_Click;
+
+            flowTpActionsRow.Controls.AddRange(new Control[] { btnRefreshTp, btnSettingsTp });
+
+            pnlTpHeader.Controls.Add(flowTpActionsRow);
+            pnlTpHeader.Controls.Add(flowTpSearchRow);
+
+            pnlTpFooter = new Panel
+            {
+                Dock = DockStyle.Bottom,
+                Height = 44,
+                Padding = new Padding(8, 6, 8, 6),
+                BackColor = Color.FromArgb(232, 235, 240)
+            };
+
+            btnInsertTp = new Button
+            {
+                Text = "Вставить в спецификацию [Enter]",
+                Dock = DockStyle.Right,
+                Width = 240,
+                Height = 32,
+                BackColor = Color.FromArgb(16, 124, 65),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+                Cursor = Cursors.Hand
+            };
+            btnInsertTp.FlatAppearance.BorderSize = 0;
+            btnInsertTp.Click += (s, e) => InsertSelectedTechProcess();
+
+            lblTpStatus = new Label
+            {
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Text = "Выберите операции галочками для поиска техпроцесса",
+                Font = new Font("Segoe UI", 9F, FontStyle.Regular),
+                ForeColor = Color.FromArgb(20, 20, 20),
+                AutoEllipsis = true
+            };
+
+            pnlTpFooter.Controls.Add(lblTpStatus);
+            pnlTpFooter.Controls.Add(btnInsertTp);
+
+            splitTpContainer = new SplitContainer
+            {
+                Dock = DockStyle.Fill,
+                Orientation = Orientation.Horizontal,
+                SplitterWidth = 6,
+                Panel1MinSize = 80,
+                Panel2MinSize = 80,
+                BackColor = Color.FromArgb(215, 220, 226)
+            };
+            splitTpContainer.SizeChanged += (s, e) =>
+            {
+                int total = splitTpContainer.Orientation == Orientation.Horizontal
+                    ? splitTpContainer.Height
+                    : splitTpContainer.Width;
+                if (total > 180)
+                {
+                    int target = (int)(total * 0.48);
+                    int min = splitTpContainer.Panel1MinSize + 5;
+                    int max = total - splitTpContainer.Panel2MinSize - 5;
+                    if (max > min)
+                    {
+                        try { splitTpContainer.SplitterDistance = Math.Max(min, Math.Min(target, max)); } catch { }
+                    }
+                }
+            };
+
+            // Верхняя секция: Операции с динамическими подвкладками и чекбоксами
+            lblOperationsTitle = new Label
+            {
+                Dock = DockStyle.Top,
+                Height = 24,
+                Text = "  Операции",
+                TextAlign = ContentAlignment.MiddleLeft,
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+                BackColor = Color.FromArgb(230, 234, 240),
+                ForeColor = Color.FromArgb(20, 20, 20)
+            };
+
+            tabOperationSheets = new TabControl
+            {
+                Dock = DockStyle.Top,
+                Height = 26,
+                Font = new Font("Segoe UI", 9F, FontStyle.Regular)
+            };
+            tabOperationSheets.SelectedIndexChanged += (s, e) => PopulateOperationsGrid();
+
+            gridOperations = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                BorderStyle = BorderStyle.None,
+                BackgroundColor = Color.White,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
+                AllowUserToResizeRows = false,
+                AllowUserToResizeColumns = true,
+                ReadOnly = false,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                MultiSelect = false,
+                RowHeadersVisible = false,
+                AutoGenerateColumns = false,
+                ShowCellToolTips = true,
+                GridColor = Color.FromArgb(220, 225, 232),
+                RowTemplate = { Height = 24 },
+                Font = new Font("Segoe UI", 9F, FontStyle.Regular),
+                EnableHeadersVisualStyles = false
+            };
+            StyleDataGridView(gridOperations);
+
+            var colOpCheck = new DataGridViewCheckBoxColumn
+            {
+                Name = "colOpSelected",
+                HeaderText = "✓",
+                DataPropertyName = "IsSelected",
+                Width = 32,
+                Resizable = DataGridViewTriState.False,
+                ReadOnly = false
+            };
+            var colOpCode = new DataGridViewTextBoxColumn
+            {
+                Name = "colOpCode",
+                HeaderText = "Обозначение",
+                DataPropertyName = "Code",
+                Width = 90,
+                ReadOnly = true
+            };
+            var colOpName = new DataGridViewTextBoxColumn
+            {
+                Name = "colOpName",
+                HeaderText = "Наименование",
+                DataPropertyName = "Name",
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
+                MinimumWidth = 120,
+                ReadOnly = true
+            };
+
+            gridOperations.Columns.AddRange(new DataGridViewColumn[] { colOpCheck, colOpCode, colOpName });
+            gridOperations.CurrentCellDirtyStateChanged += (s, e) =>
+            {
+                if (gridOperations.IsCurrentCellDirty)
+                {
+                    gridOperations.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                }
+            };
+            gridOperations.CellValueChanged += GridOperations_CellValueChanged;
+
+            splitTpContainer.Panel1.Controls.Add(gridOperations);
+            splitTpContainer.Panel1.Controls.Add(tabOperationSheets);
+            splitTpContainer.Panel1.Controls.Add(lblOperationsTitle);
+
+            // Нижняя секция: Отфильтрованные техпроцессы
+            lblTechProcessesTitle = new Label
+            {
+                Dock = DockStyle.Top,
+                Height = 24,
+                Text = "  Техпроцессы",
+                TextAlign = ContentAlignment.MiddleLeft,
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+                BackColor = Color.FromArgb(230, 234, 240),
+                ForeColor = Color.FromArgb(20, 20, 20)
+            };
+
+            gridTechProcesses = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                BorderStyle = BorderStyle.None,
+                BackgroundColor = Color.White,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
+                AllowUserToResizeRows = false,
+                AllowUserToResizeColumns = true,
+                ReadOnly = true,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                MultiSelect = false,
+                RowHeadersVisible = false,
+                AutoGenerateColumns = false,
+                ShowCellToolTips = true,
+                GridColor = Color.FromArgb(220, 225, 232),
+                RowTemplate = { Height = 26 },
+                Font = new Font("Segoe UI", 9F, FontStyle.Regular),
+                EnableHeadersVisualStyles = false
+            };
+            StyleDataGridView(gridTechProcesses);
+
+            var colTpDesig = new DataGridViewTextBoxColumn
+            {
+                HeaderText = "Обозначение",
+                DataPropertyName = "Designation",
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
+                FillWeight = 42,
+                MinimumWidth = 110
+            };
+            var colTpComp = new DataGridViewTextBoxColumn
+            {
+                HeaderText = "Наименование / состав техпроцесса",
+                DataPropertyName = "DisplayComposition",
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
+                FillWeight = 58,
+                MinimumWidth = 140
+            };
+
+            gridTechProcesses.Columns.AddRange(new DataGridViewColumn[] { colTpDesig, colTpComp });
+            gridTechProcesses.CellDoubleClick += (s, e) => InsertSelectedTechProcess();
+            gridTechProcesses.KeyDown += (s, e) =>
+            {
+                if (e.KeyCode == Keys.Enter)
+                {
+                    e.Handled = true;
+                    InsertSelectedTechProcess();
+                }
+            };
+
+            splitTpContainer.Panel2.Controls.Add(gridTechProcesses);
+            splitTpContainer.Panel2.Controls.Add(lblTechProcessesTitle);
+
+            pnlTechProcessesView.Controls.Add(splitTpContainer);
+            pnlTechProcessesView.Controls.Add(pnlTpHeader);
+            pnlTechProcessesView.Controls.Add(pnlTpFooter);
+        }
+
+        private void StyleDataGridView(DataGridView dgv)
+        {
+            dgv.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(225, 230, 238);
+            dgv.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(20, 20, 20);
+            dgv.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            dgv.ColumnHeadersHeight = 28;
+
+            dgv.DefaultCellStyle.BackColor = Color.White;
+            dgv.DefaultCellStyle.ForeColor = Color.FromArgb(15, 15, 15);
+            dgv.DefaultCellStyle.SelectionBackColor = Color.FromArgb(16, 124, 65);
+            dgv.DefaultCellStyle.SelectionForeColor = Color.White;
+
+            dgv.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(245, 247, 251);
+            dgv.AlternatingRowsDefaultCellStyle.ForeColor = Color.FromArgb(15, 15, 15);
+            dgv.AlternatingRowsDefaultCellStyle.SelectionBackColor = Color.FromArgb(16, 124, 65);
+            dgv.AlternatingRowsDefaultCellStyle.SelectionForeColor = Color.White;
         }
 
         private Button CreateStyledButton(string text, int width, int height)
@@ -566,6 +899,7 @@ namespace SpecHelper.UI
                 if (TaskPane == null)
                 {
                     splitContainer.Orientation = Orientation.Horizontal;
+                    if (splitTpContainer != null) splitTpContainer.Orientation = Orientation.Horizontal;
                     SetSafeSplitterDistance(150);
                     return;
                 }
@@ -573,14 +907,14 @@ namespace SpecHelper.UI
                 if (TaskPane.DockPosition == MsoCTPDockPosition.msoCTPDockPositionBottom ||
                     TaskPane.DockPosition == MsoCTPDockPosition.msoCTPDockPositionTop)
                 {
-                    // Если панель закреплена снизу (широкая) - дерево слева, таблица справа
                     splitContainer.Orientation = Orientation.Vertical;
+                    if (splitTpContainer != null) splitTpContainer.Orientation = Orientation.Vertical;
                     SetSafeSplitterDistance(220);
                 }
                 else
                 {
-                    // Если панель сбоку (высокая и узкая) - дерево сверху, таблица снизу во всю ширину!
                     splitContainer.Orientation = Orientation.Horizontal;
+                    if (splitTpContainer != null) splitTpContainer.Orientation = Orientation.Horizontal;
                     SetSafeSplitterDistance(150);
                 }
             }
@@ -595,7 +929,7 @@ namespace SpecHelper.UI
                     ? splitContainer.Height
                     : splitContainer.Width;
 
-                if (total <= 50) return; // Контейнер еще не получил реальный размер от Excel
+                if (total <= 50) return;
 
                 int min = splitContainer.Panel1MinSize + 5;
                 int max = total - splitContainer.Panel2MinSize - 5;
@@ -810,13 +1144,25 @@ namespace SpecHelper.UI
                 pnlHeader.Visible = false;
                 pnlFooter.Visible = false;
                 splitContainer.Visible = false;
+                pnlTechProcessesView.Visible = false;
                 pnlTemplatesView.Visible = true;
                 pnlTemplatesView.BringToFront();
                 ReloadTemplates();
             }
+            else if (tabCatalogs.SelectedTab == tabTechProcesses)
+            {
+                pnlHeader.Visible = false;
+                pnlFooter.Visible = false;
+                splitContainer.Visible = false;
+                pnlTemplatesView.Visible = false;
+                pnlTechProcessesView.Visible = true;
+                pnlTechProcessesView.BringToFront();
+                ReloadTechProcesses();
+            }
             else
             {
                 pnlTemplatesView.Visible = false;
+                pnlTechProcessesView.Visible = false;
                 pnlHeader.Visible = true;
                 pnlFooter.Visible = true;
                 splitContainer.Visible = true;
@@ -824,6 +1170,214 @@ namespace SpecHelper.UI
                 RefreshCurrentView();
             }
         }
+
+        // ================= ЛОГИКА ВКЛАДКИ ТП =================
+
+        private string GetTechProcessesFilePath()
+        {
+            if (_config != null && !string.IsNullOrWhiteSpace(_config.TechProcessesPath) && File.Exists(_config.TechProcessesPath))
+            {
+                return _config.TechProcessesPath;
+            }
+
+            string baseDir = Path.GetDirectoryName(typeof(SpecPaneControl).Assembly.Location) ?? AppDomain.CurrentDomain.BaseDirectory;
+            string[] candidates = new[]
+            {
+                Path.Combine(baseDir, "databases", "Техпроцессы.xls"),
+                Path.Combine(baseDir, "databases", "Техпроцессы.xlsx"),
+                Path.Combine(baseDir, "Техпроцессы.xls"),
+                Path.Combine(baseDir, "Техпроцессы.xlsx")
+            };
+
+            foreach (string c in candidates)
+            {
+                if (File.Exists(c)) return c;
+            }
+
+            return _config?.TechProcessesPath ?? string.Empty;
+        }
+
+        private void ReloadTechProcesses()
+        {
+            try
+            {
+                string path = GetTechProcessesFilePath();
+                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                {
+                    _tpData = new TechProcessCatalogData();
+                    tabOperationSheets.TabPages.Clear();
+                    gridOperations.DataSource = null;
+                    gridTechProcesses.DataSource = null;
+                    lblTpStatus.Text = "Укажите файл Техпроцессы.xls в Настройках";
+                    return;
+                }
+
+                string prevTabName = tabOperationSheets.SelectedTab?.Text;
+                _tpData = ExcelCatalogReader.LoadTechProcesses(path);
+
+                tabOperationSheets.TabPages.Clear();
+                foreach (var sheetPair in _tpData.OperationSheets)
+                {
+                    tabOperationSheets.TabPages.Add(new TabPage(sheetPair.Key));
+                }
+
+                if (!string.IsNullOrEmpty(prevTabName))
+                {
+                    foreach (TabPage tp in tabOperationSheets.TabPages)
+                    {
+                        if (string.Equals(tp.Text, prevTabName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            tabOperationSheets.SelectedTab = tp;
+                            break;
+                        }
+                    }
+                }
+
+                PopulateOperationsGrid();
+                ApplyTechProcessFilter();
+            }
+            catch (Exception ex)
+            {
+                lblTpStatus.Text = $"Ошибка загрузки ТП: {ex.Message}";
+            }
+        }
+
+        private void PopulateOperationsGrid()
+        {
+            _isUpdatingOpGrid = true;
+            try
+            {
+                int idx = tabOperationSheets.SelectedIndex;
+                if (idx < 0 || idx >= _tpData.OperationSheets.Count)
+                {
+                    gridOperations.DataSource = null;
+                    return;
+                }
+
+                var ops = _tpData.OperationSheets[idx].Value;
+                string query = txtSearchTp.Text.Trim();
+
+                IEnumerable<TechOperationItem> filteredOps = ops;
+                if (!string.IsNullOrEmpty(query))
+                {
+                    filteredOps = filteredOps.Where(o =>
+                        (o.Code != null && o.Code.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                        (o.Name != null && o.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0));
+                }
+
+                var rows = filteredOps.Select(o => new TechOperationRowView
+                {
+                    IsSelected = _selectedOperationCodes.Contains(o.Code),
+                    Code = o.Code,
+                    Name = o.Name
+                }).ToList();
+
+                gridOperations.DataSource = rows;
+            }
+            finally
+            {
+                _isUpdatingOpGrid = false;
+            }
+        }
+
+        private void GridOperations_CellValueChanged(object sender, DataGridViewCellEventArgs e)
+        {
+            if (_isUpdatingOpGrid || e.RowIndex < 0 || e.ColumnIndex != 0)
+                return;
+
+            if (gridOperations.Rows[e.RowIndex].DataBoundItem is TechOperationRowView rowView)
+            {
+                if (rowView.IsSelected)
+                {
+                    _selectedOperationCodes.Add(rowView.Code);
+                }
+                else
+                {
+                    _selectedOperationCodes.Remove(rowView.Code);
+                }
+
+                UpdateResetOpsButton();
+                ApplyTechProcessFilter();
+            }
+        }
+
+        private void UpdateResetOpsButton()
+        {
+            int count = _selectedOperationCodes.Count;
+            btnResetOps.Enabled = count > 0;
+            btnResetOps.Text = count > 0 ? $"Сбросить ({count})" : "Сбросить галочки";
+        }
+
+        private void ApplyTechProcessFilter()
+        {
+            if (_tpData == null || _tpData.Processes == null)
+            {
+                gridTechProcesses.DataSource = null;
+                return;
+            }
+
+            IEnumerable<TechProcessItem> candidates = _tpData.Processes;
+
+            if (_selectedOperationCodes.Count > 0)
+            {
+                // Фильтруем по ВСЕМ отмеченным галочками операциям (включая разные вкладки)
+                candidates = candidates.Where(tp =>
+                    _selectedOperationCodes.All(reqCode =>
+                        tp.OperationCodes.Any(c => string.Equals(c, reqCode, StringComparison.OrdinalIgnoreCase))));
+            }
+            else
+            {
+                string query = txtSearchTp.Text.Trim();
+                if (!string.IsNullOrEmpty(query))
+                {
+                    candidates = candidates.Where(tp =>
+                        (tp.Designation != null && tp.Designation.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                        (tp.Name != null && tp.Name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                        (tp.Composition != null && tp.Composition.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0));
+                }
+            }
+
+            var list = candidates.ToList();
+            gridTechProcesses.DataSource = list;
+            lblTechProcessesTitle.Text = $"  Техпроцессы ({list.Count} из {_tpData.Processes.Count})";
+
+            if (_selectedOperationCodes.Count > 0)
+            {
+                string selectedList = string.Join(" + ", _selectedOperationCodes);
+                lblTpStatus.Text = $"Выбрано операций: {_selectedOperationCodes.Count} [{selectedList}] | Найдено ТП: {list.Count}";
+            }
+            else
+            {
+                lblTpStatus.Text = $"Всего техпроцессов: {list.Count}. Отметьте операции галочками для подбора.";
+            }
+        }
+
+        private void InsertSelectedTechProcess()
+        {
+            if (gridTechProcesses.CurrentRow?.DataBoundItem is TechProcessItem selectedTp)
+            {
+                var result = ExcelInsertionService.InsertSingleValue(ExcelApp, selectedTp.Designation, _config);
+                lblTpStatus.Text = result.Message;
+                if (!result.Success)
+                {
+                    System.Media.SystemSounds.Beep.Play();
+                }
+            }
+            else
+            {
+                lblTpStatus.Text = "Выберите техпроцесс в нижней таблице для вставки.";
+                System.Media.SystemSounds.Beep.Play();
+            }
+        }
+
+        private class TechOperationRowView
+        {
+            public bool IsSelected { get; set; }
+            public string Code { get; set; }
+            public string Name { get; set; }
+        }
+
+        // ================= ЛОГИКА ВКЛАДКИ ШАБЛОНЫ =================
 
         private void LstTemplates_DrawItem(object sender, DrawItemEventArgs e)
         {
@@ -880,7 +1434,6 @@ namespace SpecHelper.UI
                 _allTemplates = TemplateService.LoadTemplates(path);
                 ApplyTemplateFilter();
 
-                // Фоновое открытие книги без задержки при последующей вставке
                 TemplateService.EnsureBackgroundWorkbookOpened(ExcelApp, path);
 
                 if (_allTemplates.Count > 0)
@@ -905,15 +1458,12 @@ namespace SpecHelper.UI
                 lblTemplateStatus.Text = "Перезагрузка книги шаблонов...";
                 Application.DoEvents();
 
-                // 1. Безопасно закрываем старую фоновую книгу
                 TemplateService.CloseBackgroundWorkbook();
 
-                // 2. Перечитываем файл шаблонов
                 string path = TemplateService.GetTemplatesFilePath(_config);
                 _allTemplates = TemplateService.LoadTemplates(path);
                 ApplyTemplateFilter();
 
-                // 3. Предзагружаем книгу в фоне
                 TemplateService.EnsureBackgroundWorkbookOpened(ExcelApp, path);
 
                 if (_allTemplates.Count > 0)
@@ -1007,6 +1557,10 @@ namespace SpecHelper.UI
                     if (tabCatalogs.SelectedTab == tabTemplates)
                     {
                         ReloadTemplates();
+                    }
+                    else if (tabCatalogs.SelectedTab == tabTechProcesses)
+                    {
+                        ReloadTechProcesses();
                     }
                 }
             }
