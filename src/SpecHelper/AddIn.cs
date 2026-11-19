@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
@@ -58,9 +59,10 @@ namespace SpecHelper
         }
 
         private Excel.Application _excelApp;
-        private CustomTaskPane _taskPane;
+        private readonly Dictionary<int, CustomTaskPane> _taskPanes = new Dictionary<int, CustomTaskPane>();
+        private readonly Dictionary<int, SpecPaneControl> _paneControls = new Dictionary<int, SpecPaneControl>();
         private Form _floatingForm;
-        private SpecPaneControl _paneControl;
+        private SpecPaneControl _floatingPaneControl;
         private ICTPFactory _ctpFactory;
         private IRibbonUI _ribbon;
 
@@ -70,38 +72,12 @@ namespace SpecHelper
         {
             Log("OnConnection start");
             _excelApp = (Excel.Application)Application;
-
-            try
-            {
-                var appEvents = (Excel.AppEvents_Event)_excelApp;
-                appEvents.WorkbookOpen += (Excel.Workbook wb) =>
-                {
-                    Log($"WorkbookOpen: {wb?.Name}");
-                    EnsureTaskPaneCreatedAndVisible();
-                };
-                appEvents.NewWorkbook += (Excel.Workbook wb) =>
-                {
-                    Log($"NewWorkbook: {wb?.Name}");
-                    EnsureTaskPaneCreatedAndVisible();
-                };
-                appEvents.WindowActivate += (Excel.Workbook wb, Excel.Window wn) =>
-                {
-                    Log($"WindowActivate: {wb?.Name}");
-                    EnsureTaskPaneCreatedAndVisible();
-                };
-            }
-            catch (Exception ex)
-            {
-                Log($"Error hooking events: {ex.Message}");
-            }
-
             Log("OnConnection completed");
         }
 
         public void OnStartupComplete(ref Array custom)
         {
             Log("OnStartupComplete start");
-            EnsureTaskPaneCreatedAndVisible();
             UpdateService.CheckForUpdatesAsync(_excelApp);
             Log("OnStartupComplete end");
         }
@@ -111,10 +87,17 @@ namespace SpecHelper
             Log("OnDisconnection");
             try { TemplateService.CloseBackgroundWorkbook(); } catch { }
 
-            if (_taskPane != null)
+            foreach (var pane in _taskPanes.Values)
             {
-                try { _taskPane.Visible = false; } catch { }
+                try { pane.Visible = false; } catch { }
             }
+            _taskPanes.Clear();
+
+            foreach (var ctrl in _paneControls.Values)
+            {
+                try { ctrl?.Dispose(); } catch { }
+            }
+            _paneControls.Clear();
 
             if (_floatingForm != null && !_floatingForm.IsDisposed)
             {
@@ -122,9 +105,8 @@ namespace SpecHelper
                 _floatingForm = null;
             }
 
-            _paneControl?.Dispose();
-            _paneControl = null;
-            _taskPane = null;
+            _floatingPaneControl?.Dispose();
+            _floatingPaneControl = null;
             _excelApp = null;
         }
 
@@ -144,106 +126,96 @@ namespace SpecHelper
 
         public void CTPFactoryAvailable(ICTPFactory CTPFactoryInst)
         {
-            Log("CTPFactoryAvailable received");
+            Log("CTPFactoryAvailable received (on-demand mode)");
             _ctpFactory = CTPFactoryInst;
-            EnsureTaskPaneCreatedAndVisible();
         }
 
-        private void EnsureTaskPaneCreatedAndVisible()
+        private void CreateAndShowPaneForActiveWindow()
         {
-            if (_taskPane == null && (_floatingForm == null || _floatingForm.IsDisposed))
+            if (_excelApp == null) return;
+
+            dynamic activeWindow = _excelApp.ActiveWindow;
+            if (activeWindow == null)
             {
-                bool ctpCreated = false;
-                if (_ctpFactory != null)
-                {
-                    try
-                    {
-                        Log("Creating CustomTaskPane via CTPFactory...");
-                        _taskPane = _ctpFactory.CreateCTP("SpecHelper.UI.SpecPaneControl", "Справочник спецификаций", Type.Missing);
-                        Log("CreateCTP succeeded!");
-
-                        _taskPane.DockPosition = MsoCTPDockPosition.msoCTPDockPositionRight;
-                        _taskPane.DockPositionRestrict = MsoCTPDockPositionRestrict.msoCTPDockPositionRestrictNone;
-
-                        try
-                        {
-                            _taskPane.Width = 560;
-                        }
-                        catch (Exception wEx)
-                        {
-                            Log($"Width set error: {wEx.Message}");
-                        }
-
-                        _taskPane.DockPositionStateChange += (CustomTaskPane ctp) =>
-                        {
-                            try
-                            {
-                                if (ctp.DockPosition == MsoCTPDockPosition.msoCTPDockPositionRight ||
-                                    ctp.DockPosition == MsoCTPDockPosition.msoCTPDockPositionLeft)
-                                {
-                                    try { ctp.Width = 560; } catch { }
-                                }
-                                else if (ctp.DockPosition == MsoCTPDockPosition.msoCTPDockPositionBottom ||
-                                         ctp.DockPosition == MsoCTPDockPosition.msoCTPDockPositionTop)
-                                {
-                                    try { ctp.Height = 360; } catch { }
-                                }
-
-                                _paneControl?.OnDockPositionChanged();
-                            }
-                            catch { }
-                        };
-
-                        _paneControl = _taskPane.ContentControl as SpecPaneControl;
-                        if (_paneControl != null && _excelApp != null)
-                        {
-                            Log("Initializing SpecPaneControl in CustomTaskPane...");
-                            _paneControl.Initialize(_excelApp, _taskPane);
-                            Log("SpecPaneControl initialized successfully");
-                        }
-
-                        ctpCreated = true;
-                    }
-                    catch (Exception ex)
-                    {
-                        Log($"CreateCTP failed or blocked by policy: {ex.Message}. Switching to fallback floating window.");
-                        _taskPane = null;
-                        ctpCreated = false;
-                    }
-                }
-                else
-                {
-                    Log("CTPFactory is null. Switching to fallback floating window.");
-                }
-
-                if (!ctpCreated)
-                {
-                    CreateOrShowFloatingWindow();
-                    return;
-                }
+                Log("ActiveWindow is null. Switching to fallback floating window.");
+                CreateOrShowFloatingWindow();
+                return;
             }
 
-            if (_taskPane != null)
+            int hwnd = (int)activeWindow.Hwnd;
+
+            if (_ctpFactory != null)
             {
                 try
                 {
-                    if (!_taskPane.Visible)
+                    Log($"Creating CustomTaskPane for active window Hwnd={hwnd}...");
+                    CustomTaskPane pane = _ctpFactory.CreateCTP(
+                        "SpecHelper.UI.SpecPaneControl",
+                        "Справочник спецификаций",
+                        activeWindow
+                    );
+                    Log("CreateCTP succeeded!");
+
+                    pane.DockPosition = MsoCTPDockPosition.msoCTPDockPositionRight;
+                    pane.DockPositionRestrict = MsoCTPDockPositionRestrict.msoCTPDockPositionRestrictNone;
+
+                    try
                     {
-                        Log("Setting _taskPane.Visible = true");
-                        _taskPane.Visible = true;
-                        Log("_taskPane.Visible is now true");
+                        pane.Width = 560;
                     }
+                    catch (Exception wEx)
+                    {
+                        Log($"Width set error: {wEx.Message}");
+                    }
+
+                    SpecPaneControl control = pane.ContentControl as SpecPaneControl;
+                    if (control != null)
+                    {
+                        Log("Initializing SpecPaneControl in CustomTaskPane...");
+                        control.Initialize(_excelApp, pane);
+                        Log("SpecPaneControl initialized successfully");
+                    }
+
+                    pane.DockPositionStateChange += (CustomTaskPane ctp) =>
+                    {
+                        try
+                        {
+                            if (ctp.DockPosition == MsoCTPDockPosition.msoCTPDockPositionRight ||
+                                ctp.DockPosition == MsoCTPDockPosition.msoCTPDockPositionLeft)
+                            {
+                                try { ctp.Width = 560; } catch { }
+                            }
+                            else if (ctp.DockPosition == MsoCTPDockPosition.msoCTPDockPositionBottom ||
+                                     ctp.DockPosition == MsoCTPDockPosition.msoCTPDockPositionTop)
+                            {
+                                try { ctp.Height = 360; } catch { }
+                            }
+
+                            control?.OnDockPositionChanged();
+                        }
+                        catch { }
+                    };
+
+                    _taskPanes[hwnd] = pane;
+                    _paneControls[hwnd] = control;
+
+                    pane.Visible = true;
+                    Log($"CustomTaskPane visible is now true for Hwnd={hwnd}");
+                    return;
                 }
-                catch (Exception vEx)
+                catch (Exception ex)
                 {
-                    Log($"Error setting Visible = true on CTP: {vEx.Message}. Attempting floating window fallback.");
-                    CreateOrShowFloatingWindow();
+                    Log($"CreateCTP failed or blocked by policy: {ex.Message}. Switching to fallback floating window.");
+                    _taskPanes.Remove(hwnd);
+                    _paneControls.Remove(hwnd);
                 }
             }
-            else if (_floatingForm != null && !_floatingForm.IsDisposed)
+            else
             {
-                CreateOrShowFloatingWindow();
+                Log("CTPFactory is null. Switching to fallback floating window.");
             }
+
+            CreateOrShowFloatingWindow();
         }
 
         private void CreateOrShowFloatingWindow()
@@ -264,11 +236,11 @@ namespace SpecHelper
                         ShowIcon = false
                     };
 
-                    _paneControl = new SpecPaneControl
+                    _floatingPaneControl = new SpecPaneControl
                     {
                         Dock = DockStyle.Fill
                     };
-                    _floatingForm.Controls.Add(_paneControl);
+                    _floatingForm.Controls.Add(_floatingPaneControl);
 
                     _floatingForm.FormClosing += (s, e) =>
                     {
@@ -281,7 +253,7 @@ namespace SpecHelper
 
                     if (_excelApp != null)
                     {
-                        _paneControl.Initialize(_excelApp, null);
+                        _floatingPaneControl.Initialize(_excelApp, null);
                     }
                     Log("Fallback floating window created successfully.");
                 }
@@ -296,6 +268,15 @@ namespace SpecHelper
             {
                 Log($"Error in CreateOrShowFloatingWindow: {ex.Message}");
             }
+        }
+
+        private void ReloadAllOpenCatalogs()
+        {
+            foreach (var ctrl in _paneControls.Values)
+            {
+                try { ctrl?.ReloadAllCatalogs(); } catch { }
+            }
+            try { _floatingPaneControl?.ReloadAllCatalogs(); } catch { }
         }
 
         #endregion
@@ -336,7 +317,7 @@ namespace SpecHelper
         public void OnRefreshClicked(IRibbonControl control)
         {
             Log("OnRefreshClicked");
-            _paneControl?.ReloadAllCatalogs();
+            ReloadAllOpenCatalogs();
         }
 
         public void OnSettingsClicked(IRibbonControl control)
@@ -347,7 +328,7 @@ namespace SpecHelper
             {
                 if (form.ShowDialog() == DialogResult.OK)
                 {
-                    _paneControl?.ReloadAllCatalogs();
+                    ReloadAllOpenCatalogs();
                 }
             }
         }
@@ -356,12 +337,31 @@ namespace SpecHelper
         {
             try
             {
-                if (_taskPane != null)
+                if (_excelApp != null && _excelApp.ActiveWindow != null)
                 {
-                    _taskPane.Visible = !_taskPane.Visible;
-                    Log($"TogglePane: CTP visible now {_taskPane.Visible}");
+                    dynamic activeWindow = _excelApp.ActiveWindow;
+                    int hwnd = (int)activeWindow.Hwnd;
+
+                    if (_taskPanes.TryGetValue(hwnd, out CustomTaskPane existingPane))
+                    {
+                        try
+                        {
+                            existingPane.Visible = !existingPane.Visible;
+                            Log($"TogglePane: Hwnd={hwnd}, CTP visible now {existingPane.Visible}");
+                            return;
+                        }
+                        catch
+                        {
+                            _taskPanes.Remove(hwnd);
+                            _paneControls.Remove(hwnd);
+                        }
+                    }
+
+                    CreateAndShowPaneForActiveWindow();
+                    return;
                 }
-                else if (_floatingForm != null && !_floatingForm.IsDisposed)
+
+                if (_floatingForm != null && !_floatingForm.IsDisposed)
                 {
                     if (_floatingForm.Visible)
                     {
@@ -376,7 +376,7 @@ namespace SpecHelper
                 }
                 else
                 {
-                    EnsureTaskPaneCreatedAndVisible();
+                    CreateOrShowFloatingWindow();
                 }
             }
             catch (Exception ex)
