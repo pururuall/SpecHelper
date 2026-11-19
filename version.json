@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0.0",
-  "url": "https://github.com/pururuall/SpecHelper/releases/download/v1.1.0/SpecHelper_Update.zip",
-  "notes": "Добавлена вкладка Шаблоны с фоновым кэшированием и мгновенной вставкой со сдвигом строк."
+  "version": "1.1.1.0",
+  "url": "https://github.com/pururuall/SpecHelper/releases/download/v1.1.1/SpecHelper_Update.zip",
+  "notes": "Исправлено открытие панели Справочник БД в активном окне Excel при наличии PERSONAL.XLSB и фоновых надстроек."
 }
