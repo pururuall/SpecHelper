@@ -24,7 +24,6 @@ namespace SpecHelper.Services
 
             try
             {
-                // Проверка, что Excel не в модальном диалоге
                 if (!excelApp.Ready)
                 {
                     return (false, "Excel занят. Завершите текущую операцию в Excel.");
@@ -51,35 +50,24 @@ namespace SpecHelper.Services
                     return (false, "Лист Excel защищен от изменений. Снимите защиту листа.");
                 }
 
-                // Очистка значений от разрывов строк и табов для корректного разделения по столбцам
                 string designation = item.Designation ?? string.Empty;
                 string name = item.Name ?? string.Empty;
 
                 designation = designation.Replace("\r", " ").Replace("\n", " ").Replace("\t", " ");
                 name = name.Replace("\r", " ").Replace("\n", " ").Replace("\t", " ");
 
-                // Формируем строку: Обозначение [TAB] Наименование
                 string pasteText = $"{designation}\t{name}";
-
-                // 1. Сохраняем снимок текущего буфера обмена пользователя
                 DataObject previousClipboardSnapshot = SnapshotClipboard();
 
                 try
                 {
-                    // Помещаем в буфер обмена для вставки в Excel
                     Clipboard.SetDataObject(pasteText, false, 5, 50);
-
-                    // Гарантируем, что выделена ровно одна активная ячейка
                     activeCell.Select();
-
-                    // Вызываем нативную команду вставки Excel Ribbon (ExecuteMso "Paste").
-                    // Это создает полноценный шаг в стеке отмены Excel и позволяет отменять через Ctrl + Z!
                     dynamic commandBars = excelApp.CommandBars;
                     commandBars.ExecuteMso("Paste");
                 }
                 catch
                 {
-                    // Резервный способ (COM Interop) на случай, если команда ленты недоступна
                     try
                     {
                         activeCell.Value2 = designation;
@@ -93,21 +81,16 @@ namespace SpecHelper.Services
                 }
                 finally
                 {
-                    // 2. Немедленно восстанавливаем буфер обмена пользователя
                     if (previousClipboardSnapshot != null)
                     {
                         try
                         {
                             Clipboard.SetDataObject(previousClipboardSnapshot, true, 5, 50);
                         }
-                        catch
-                        {
-                            // Игнорируем ошибку восстановления пользовательского буфера
-                        }
+                        catch { }
                     }
                 }
 
-                // 3. Автопереход на строку ниже для удобства серийного ввода
                 if (config != null && config.AutoAdvanceRow)
                 {
                     try
@@ -115,13 +98,110 @@ namespace SpecHelper.Services
                         Excel.Range nextRowCell = activeCell.Offset[1, 0];
                         nextRowCell.Select();
                     }
-                    catch
-                    {
-                        // Игнорируем ошибку выделения, если достигнут край листа
-                    }
+                    catch { }
                 }
 
                 return (true, $"Вставлено: {designation}");
+            }
+            catch (COMException comEx)
+            {
+                if (comEx.ErrorCode == VBA_E_IGNORE)
+                {
+                    return (false, "Excel находится в режиме редактирования ячейки. Нажмите Enter или Esc на листе и повторите.");
+                }
+
+                return (false, $"Ошибка Excel COM (0x{comEx.ErrorCode:X8}): {comEx.Message}");
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Ошибка вставки: {ex.Message}");
+            }
+        }
+
+        public static (bool Success, string Message) InsertSingleValue(Excel.Application excelApp, string value, PluginConfig config)
+        {
+            if (excelApp == null)
+            {
+                return (false, "Приложение Excel не подключено.");
+            }
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return (false, "Значение для вставки пустое.");
+            }
+
+            try
+            {
+                if (!excelApp.Ready)
+                {
+                    return (false, "Excel занят. Завершите текущую операцию в Excel.");
+                }
+
+                Excel.Range activeCell = null;
+                try
+                {
+                    activeCell = excelApp.ActiveCell;
+                }
+                catch (COMException comEx) when (comEx.ErrorCode == VBA_E_IGNORE)
+                {
+                    return (false, "Excel находится в режиме редактирования ячейки. Нажмите Enter или Esc на листе и повторите.");
+                }
+
+                if (activeCell == null)
+                {
+                    return (false, "На листе Excel не выбрана активная ячейка.");
+                }
+
+                Excel.Worksheet worksheet = activeCell.Worksheet;
+                if (worksheet != null && worksheet.ProtectContents)
+                {
+                    return (false, "Лист Excel защищен от изменений. Снимите защиту листа.");
+                }
+
+                string cleanValue = value.Replace("\r", " ").Replace("\n", " ").Replace("\t", " ").Trim();
+                DataObject previousClipboardSnapshot = SnapshotClipboard();
+
+                try
+                {
+                    Clipboard.SetDataObject(cleanValue, false, 5, 50);
+                    activeCell.Select();
+                    dynamic commandBars = excelApp.CommandBars;
+                    commandBars.ExecuteMso("Paste");
+                }
+                catch
+                {
+                    try
+                    {
+                        activeCell.Value2 = cleanValue;
+                    }
+                    catch (Exception ex)
+                    {
+                        return (false, $"Ошибка записи в ячейку: {ex.Message}");
+                    }
+                }
+                finally
+                {
+                    if (previousClipboardSnapshot != null)
+                    {
+                        try
+                        {
+                            Clipboard.SetDataObject(previousClipboardSnapshot, true, 5, 50);
+                        }
+                        catch { }
+                    }
+                }
+
+                if (config != null && config.AutoAdvanceRow)
+                {
+                    try
+                    {
+                        Excel.Range nextRowCell = activeCell.Offset[1, 0];
+                        nextRowCell.Select();
+                    }
+                    catch { }
+                }
+
+                return (true, $"Вставлен ТП: {cleanValue}");
             }
             catch (COMException comEx)
             {
@@ -161,10 +241,7 @@ namespace SpecHelper.Services
                             hasData = true;
                         }
                     }
-                    catch
-                    {
-                        // Некоторые OLE-форматы не могут быть сериализованы в память, пропускаем их
-                    }
+                    catch { }
                 }
 
                 return hasData ? snapshot : null;
