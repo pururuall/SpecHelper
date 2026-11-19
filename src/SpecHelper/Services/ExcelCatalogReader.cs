@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using ExcelDataReader;
@@ -21,26 +22,7 @@ namespace SpecHelper.Services
                 return (root, allItems);
             }
 
-            // Retry policy при открытии файла
-            FileStream stream = null;
-            int retries = 4;
-            int delayMs = 250;
-
-            for (int i = 0; i < retries; i++)
-            {
-                try
-                {
-                    stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                    break;
-                }
-                catch (IOException)
-                {
-                    if (i == retries - 1)
-                        throw;
-                    Thread.Sleep(delayMs);
-                }
-            }
-
+            FileStream stream = OpenFileWithRetry(filePath);
             if (stream == null)
             {
                 return (root, allItems);
@@ -53,7 +35,7 @@ namespace SpecHelper.Services
                 {
                     ConfigureDataTable = (_) => new ExcelDataTableConfiguration()
                     {
-                        UseHeaderRow = false // Ручной парсинг заголовков для максимальной гибкости
+                        UseHeaderRow = false
                     }
                 });
 
@@ -68,7 +50,6 @@ namespace SpecHelper.Services
                     return (root, allItems);
                 }
 
-                // Определение индексов колонок
                 int colDesignation = -1;
                 int colName = -1;
                 int colFolder = -1;
@@ -98,12 +79,10 @@ namespace SpecHelper.Services
                     }
                 }
 
-                // Fallback, если заголовки не распознаны
                 if (colDesignation == -1) colDesignation = 0;
                 if (colName == -1 && table.Columns.Count > 1) colName = 1;
                 if (colFolder == -1 && table.Columns.Count > 2) colFolder = 2;
 
-                // Чтение строк данных
                 for (int r = 1; r < table.Rows.Count; r++)
                 {
                     var row = table.Rows[r];
@@ -121,7 +100,7 @@ namespace SpecHelper.Services
 
                     if (string.IsNullOrEmpty(designation) && string.IsNullOrEmpty(name))
                     {
-                        continue; // Пропуск пустых строк
+                        continue;
                     }
 
                     var item = new CatalogItem
@@ -133,13 +112,191 @@ namespace SpecHelper.Services
                     };
 
                     allItems.Add(item);
-
-                    // Добавление в дерево узлов
                     AddCatalogItemToTree(root, item);
                 }
             }
 
             return (root, allItems);
+        }
+
+        public static TechProcessCatalogData LoadTechProcesses(string filePath)
+        {
+            var data = new TechProcessCatalogData();
+            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+            {
+                return data;
+            }
+
+            FileStream stream = OpenFileWithRetry(filePath);
+            if (stream == null)
+            {
+                return data;
+            }
+
+            using (stream)
+            using (var reader = ExcelReaderFactory.CreateReader(stream))
+            {
+                var result = reader.AsDataSet(new ExcelDataSetConfiguration()
+                {
+                    ConfigureDataTable = (_) => new ExcelDataTableConfiguration()
+                    {
+                        UseHeaderRow = false
+                    }
+                });
+
+                if (result.Tables.Count == 0)
+                {
+                    return data;
+                }
+
+                // Ищем лист "Техпроцессы" (или берем первый лист)
+                DataTable tpTable = null;
+                foreach (DataTable t in result.Tables)
+                {
+                    if (string.Equals(t.TableName?.Trim(), "Техпроцессы", StringComparison.OrdinalIgnoreCase))
+                    {
+                        tpTable = t;
+                        break;
+                    }
+                }
+                if (tpTable == null)
+                {
+                    tpTable = result.Tables[0];
+                }
+
+                // Парсинг листа техпроцессов
+                if (tpTable.Rows.Count >= 2)
+                {
+                    int colDesig = -1, colName = -1, colComment = -1, colComp = -1;
+                    var header = tpTable.Rows[0];
+                    for (int c = 0; c < tpTable.Columns.Count; c++)
+                    {
+                        var val = header[c]?.ToString()?.Trim() ?? string.Empty;
+                        if (string.Equals(val, "Обозначение", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(val, "Код", StringComparison.OrdinalIgnoreCase))
+                            colDesig = c;
+                        else if (string.Equals(val, "Наименование", StringComparison.OrdinalIgnoreCase) ||
+                                 string.Equals(val, "Название", StringComparison.OrdinalIgnoreCase))
+                            colName = c;
+                        else if (string.Equals(val, "Комментарий", StringComparison.OrdinalIgnoreCase))
+                            colComment = c;
+                        else if (val.IndexOf("Состав", StringComparison.OrdinalIgnoreCase) >= 0)
+                            colComp = c;
+                    }
+
+                    if (colDesig == -1) colDesig = 0;
+                    if (colName == -1 && tpTable.Columns.Count > 1) colName = 1;
+                    if (colComment == -1 && tpTable.Columns.Count > 2) colComment = 2;
+                    if (colComp == -1)
+                        colComp = tpTable.Columns.Count >= 5 ? 4 : tpTable.Columns.Count - 1;
+
+                    for (int r = 1; r < tpTable.Rows.Count; r++)
+                    {
+                        var row = tpTable.Rows[r];
+                        string desig = GetCellText(row, colDesig);
+                        string name = GetCellText(row, colName);
+                        string comment = GetCellText(row, colComment);
+                        string comp = GetCellText(row, colComp);
+
+                        if (string.IsNullOrEmpty(desig) && string.IsNullOrEmpty(name))
+                            continue;
+
+                        var codes = comp
+                            .Split(new[] { '+' }, StringSplitOptions.RemoveEmptyEntries)
+                            .Select(x => x.Trim())
+                            .Where(x => !string.IsNullOrEmpty(x))
+                            .ToList();
+
+                        data.Processes.Add(new TechProcessItem
+                        {
+                            Designation = desig,
+                            Name = name,
+                            Comment = comment,
+                            Composition = comp,
+                            OperationCodes = codes
+                        });
+                    }
+                }
+
+                // Все остальные листы в книге ("Операции новые", "ЦМК" и будущие) — вкладки операций
+                foreach (DataTable opTable in result.Tables)
+                {
+                    if (opTable == tpTable || opTable.Rows.Count < 2)
+                        continue;
+
+                    int colCode = -1, colName = -1, colComment = -1;
+                    var header = opTable.Rows[0];
+                    for (int c = 0; c < opTable.Columns.Count; c++)
+                    {
+                        var val = header[c]?.ToString()?.Trim() ?? string.Empty;
+                        if (string.Equals(val, "Обозначение", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(val, "Код", StringComparison.OrdinalIgnoreCase))
+                            colCode = c;
+                        else if (string.Equals(val, "Наименование", StringComparison.OrdinalIgnoreCase) ||
+                                 string.Equals(val, "Название", StringComparison.OrdinalIgnoreCase))
+                            colName = c;
+                        else if (string.Equals(val, "Комментарий", StringComparison.OrdinalIgnoreCase))
+                            colComment = c;
+                    }
+
+                    if (colCode == -1) colCode = 0;
+                    if (colName == -1 && opTable.Columns.Count > 1) colName = 1;
+                    if (colComment == -1 && opTable.Columns.Count > 2) colComment = 2;
+
+                    var ops = new List<TechOperationItem>();
+                    for (int r = 1; r < opTable.Rows.Count; r++)
+                    {
+                        var row = opTable.Rows[r];
+                        string code = GetCellText(row, colCode);
+                        string name = GetCellText(row, colName);
+                        string comment = GetCellText(row, colComment);
+
+                        if (string.IsNullOrEmpty(code) && string.IsNullOrEmpty(name))
+                            continue;
+
+                        ops.Add(new TechOperationItem
+                        {
+                            Code = code,
+                            Name = name,
+                            Comment = comment,
+                            SheetName = opTable.TableName
+                        });
+                    }
+
+                    data.OperationSheets.Add(new KeyValuePair<string, List<TechOperationItem>>(opTable.TableName, ops));
+                }
+            }
+
+            return data;
+        }
+
+        private static string GetCellText(DataRow row, int colIndex)
+        {
+            if (colIndex < 0 || colIndex >= row.Table.Columns.Count)
+                return string.Empty;
+            return row[colIndex]?.ToString()?.Trim() ?? string.Empty;
+        }
+
+        private static FileStream OpenFileWithRetry(string filePath)
+        {
+            int retries = 4;
+            int delayMs = 250;
+
+            for (int i = 0; i < retries; i++)
+            {
+                try
+                {
+                    return new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                }
+                catch (IOException)
+                {
+                    if (i == retries - 1)
+                        throw;
+                    Thread.Sleep(delayMs);
+                }
+            }
+
+            return null;
         }
 
         private static void AddCatalogItemToTree(CatalogNode root, CatalogItem item)
